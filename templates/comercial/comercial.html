@@ -1,0 +1,78 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Desempenho Comercial - MC4 CRM</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=1.1">
+    <style>
+        body {
+            background: linear-gradient(135deg, #00A5B5, #416ba9);
+        }
+
+        .vendedor-card { border: none; border-radius: 14px; background: white; transition: transform 0.2s; }
+        .vendedor-card:hover { transform: translateY(-3px); }
+        .avatar-circle { width: 55px; height: 55px; background-color: #ebecf0; color: var(--sidebar-bg); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; border-radius: 50%; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    {% include 'comercial/navbar.html' %}
+
+    <div id="content">
+        <div class="mb-4">
+            <h3 class="fw-bold m-0 text-white">Equipe Comercial MC4</h3>
+            <p class="text-white small">Acompanhamento em tempo real de contratos convertidos e propostas em negociação.</p>
+        </div>
+
+        <div class="row g-4">
+            {% for v in vendedores %}
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="card vendedor-card shadow-sm p-4">
+                    <div class="d-flex align-items-center gap-3 mb-4">
+                        <div class="avatar-circle">
+                            {{ v.nome|slice:":1"|upper }}
+                        </div>
+                        <div>
+                            <h5 class="fw-bold m-0 text-dark">{{ v.nome }}</h5>
+                            <small class="text-muted"><i class="fa-solid fa-briefcase me-1"></i> Executivo de Contas</small>
+                        </div>
+                    </div>
+
+                    <div class="row text-center bg-light rounded-3 py-3 g-2 mb-3">
+                        <div class="col-6 border-end">
+                            <small class="text-muted d-block text-uppercase" style="font-size: 0.75rem;">Negócios Totais</small>
+                            <span class="fw-bold text-dark fs-5">{{ v.total_leads }}</span>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block text-uppercase" style="font-size: 0.75rem;">Pipeline Ativo</small>
+                            <span class="fw-bold text-primary d-block mt-1" style="font-size: 0.95rem;">{{ v.leads_ativos }} em aberto</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-2">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <small class="text-muted fw-bold">PROPOSTAS EM ABERTO:</small>
+                            <strong class="text-dark">R$ {{ v.pipeline_ativo }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-success fw-bold"><i class="fa-solid fa-trophy me-1"></i> FATURADO (GANHO):</small>
+                            <strong class="text-success fs-5">R$ {{ v.faturamento_fechado }}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12 text-center py-5">
+                <p class="text-muted">Nenhum vendedor cadastrado ou ativo no sistema.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

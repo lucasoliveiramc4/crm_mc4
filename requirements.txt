@@ -1,0 +1,22 @@
+Django==5.1.7
+
+# Banco PostgreSQL
+psycopg2-binary==2.9.9
+
+# Config
+python-decouple==3.8
+python-dotenv==1.0.0
+
+# Auth
+django-allauth==0.61.1
+
+# API / filtros
+djangorestframework==3.14.0
+django-filter==24.1
+
+# CORS
+django-cors-headers==4.3.1
+
+# PRODUÇÃO (ESSENCIAIS)
+gunicorn==22.0.0
+whitenoise==6.7.0

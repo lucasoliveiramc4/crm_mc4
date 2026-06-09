@@ -1,0 +1,179 @@
+/* static/css/style.css */
+
+:root {
+    --sidebar-bg: #416ba9;       /* Azul MC4 */
+    --mc4-cyan: #00A5B5;         /* Ciano Comercial */
+    --mc4-lime: #CEDB05;         /* Lima Sucesso/Ganha */
+    --mc4-orange: #eb5727;       /* Laranja Alerta/Perdido */
+    --active-bg: rgba(255, 255, 255, 0.18);
+    --body-bg: #f4f7f9;
+}
+
+body { 
+    display: flex; 
+    min-height: 100vh; 
+    background: var(--body-bg);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    overflow: hidden;
+}
+
+.vidro-container {
+            background: rgba(255, 255, 255, 0.15);
+
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+
+}
+            
+
+/* --- BARRA LATERAL (SIDEBAR) --- */
+#sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 260px; /* usa width ao invés de min/max */
+    z-index: 1000;
+    overflow-y: auto;
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+
+#sidebar.active {
+    left: 0;
+    box-shadow: 4px 0 10px rgba(0,0,0,0.2);
+}
+
+
+.nav-sidebar {
+    display: flex;
+    flex-direction: column;
+    padding: 10px 0;
+    flex-grow: 1;
+}
+
+.sidebar-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nav-sidebar a {
+    padding: 12px 25px;
+    color: rgba(255, 255, 255, 0.85);
+    text-decoration: none;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.2s;
+}
+
+.nav-sidebar a:hover {
+    color: white;
+    background: var(--active-bg);
+}
+
+.nav-sidebar a.active {
+    color: white;
+    background: var(--active-bg);
+    border-left: 4px solid var(--mc4-lime);
+    font-weight: bold;
+}
+
+/* --- CONTEÚDO PRINCIPAL --- */
+#content {
+    flex-grow: 1;
+    padding: 30px;
+    margin-top: 0;
+    margin-left: 250px; /* MESMO valor da sidebar */
+    transition: all 0.3s;
+    width: 100%;
+    height: 100vh;
+    overflow-y: auto;   
+}
+
+/* --- HEADER MOBILE --- */
+.mobile-header {
+    background: var(--sidebar-bg);
+    height: 60px;
+    position: fixed;
+    top: 0;
+    width: 100%;
+    z-index: 1000;
+    display: none !important;
+}
+
+.btn-toggle { 
+    background: none; 
+    border: none; 
+    color: white; 
+    font-size: 1.5rem; 
+}
+
+/* --- RESPONSIVIDADE PARA CELULAR --- */
+@media (max-width: 768px) {
+    body {
+        flex-direction: column;
+    }
+    .mobile-header {
+        display: flex !important;
+    }
+    #sidebar {
+        position: fixed;
+        top: 60px;
+        left: -260px;
+        height: calc(100vh - 60px);
+        z-index: 999;
+        width: 260px;
+    }
+    #sidebar.active {
+        left: 0;
+    }
+    #content {
+        padding: 20px;
+        margin-top: 60px;
+    }
+}
+
+/* --- PRELOADER / SPINNER GLOBAL --- */
+#preloader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.9); /* Fundo semi-transparente */
+    z-index: 99999; /* Fica acima de absolutamente tudo */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.spinner-mc4 {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #ebecf0;
+    border-top: 5px solid var(--sidebar-bg); /* Azul MC4 */
+    border-right: 5px solid var(--mc4-cyan);  /* Ciano MC4 */
+    border-radius: 50%;
+    animation: girarSpinner 0.8s linear infinite;
+}
+
+@keyframes girarSpinner {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Classe utilitária para sumir com o spinner via JS */
+.preloader-hidden {
+    opacity: 0;
+    visibility: hidden;
+}

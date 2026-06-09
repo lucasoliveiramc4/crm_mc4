@@ -1,0 +1,144 @@
+{% load permissions %}
+
+<!-- Elemento Visual do Carregamento -->
+<div id="preloader">
+    <div class="spinner-mc4"></div>
+</div>
+
+<script>
+window.addEventListener('load', function() {
+    const preloader = document.getElementById('preloader');
+    if (preloader) {
+        preloader.classList.add('preloader-hidden');
+    }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+
+    // ✅ Toggle mobile
+    const btn = document.getElementById('mobileMenuBtn');
+    if (btn) {
+        btn.addEventListener('click', function() {
+            document.getElementById('sidebar').classList.toggle('active');
+            document.body.classList.toggle('no-scroll');
+        });
+    }
+
+    // ✅ Spinner ao navegar
+    const linksMenu = document.querySelectorAll('#sidebar a, .navbar-brand, .mobile-header a');
+
+    linksMenu.forEach(link => {
+        const href = link.getAttribute('href');
+
+        if (href && href !== '#' && !href.includes('logout')) {
+            link.addEventListener('click', function() {
+                const preloader = document.getElementById('preloader');
+                if (preloader) {
+                    preloader.classList.remove('preloader-hidden');
+                }
+            });
+        }
+    });
+});
+</script>
+
+
+<!-- Cabeçalho Mobile -->
+<div class="mobile-header d-md-none d-flex align-items-center px-3 shadow">
+    <button class="btn-toggle" id="mobileMenuBtn">
+        <i class="fas fa-bars"></i>
+    </button>
+    <img src="https://rkhgeaikydlrnuwttnge.supabase.co/storage/v1/object/public/images/MC4%20CRM_BRANCA_02.svg"
+         alt="Logo MC4" class="ms-3" style="height: 20px;">
+</div>
+
+
+<!-- Barra Lateral -->
+<nav id="sidebar">
+    <div class="sidebar-header text-center py-4 d-none d-md-block">
+        <img src="https://rkhgeaikydlrnuwttnge.supabase.co/storage/v1/object/public/images/MC4%20CRM_BRANCA_02.svg"
+             alt="Logo MC4" style="width: 140px;">
+    </div>
+
+    <div class="nav-sidebar">
+
+        <!-- ✅ TODOS -->
+        <a href="{% url 'dashboard' %}"
+           class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+            <i class="fas fa-chart-line"></i> Dashboard
+        </a>
+
+
+        <!-- ✅ COMERCIAL + DIRETORIA -->
+        {% if request.user|has_group:"Comercial" or request.user|has_group:"Diretoria" or request.user.is_superuser %}
+        <a href="{% url 'kanban' %}"
+           class="{% if request.resolver_match.url_name == 'kanban' %}active{% endif %}">
+            <i class="fas fa-funnel-dollar"></i> Oportunidades
+        </a>
+        {% endif %}
+
+
+        <!-- ✅ CLIENTES (COMERCIAL + DIRETORIA) -->
+        {% if request.user|has_group:"Comercial" or request.user|has_group:"Diretoria" or request.user.is_superuser %}
+        <a href="{% url 'clientes' %}"
+           class="{% if request.resolver_match.url_name == 'clientes' %}active{% endif %}">
+            <i class="fas fa-users"></i> Clientes
+        </a>
+        {% endif %}
+
+
+        <!-- ✅ COMERCIAL (SÓ DIRETORIA + ADMIN) -->
+        {% if request.user|has_group:"Diretoria" or request.user.is_superuser %}
+        <a href="{% url 'comercial_equipe' %}"
+           class="{% if request.resolver_match.url_name == 'comercial_equipe' %}active{% endif %}">
+            <i class="fas fa-user-tie"></i> Comercial
+        </a>
+        {% endif %}
+
+
+        <hr class="mx-3 opacity-25 text-white">
+
+
+        <!-- ✅ CONFIGURAÇÕES (SÓ ADMIN) -->
+        {% if request.user.is_superuser %}
+        <a href="#"
+           class="{% if request.resolver_match.url_name == 'configuracoes' %}active{% endif %}">
+            <i class="fas fa-cog"></i> Configurações
+        </a>
+        {% endif %}
+
+
+        <!-- ✅ LOGOUT (TODOS) -->
+        <a href="{% url 'account_logout' %}" class="mt-5 text-white bg-danger-hover">
+            <i class="fas fa-sign-out-alt"></i> Sair
+        </a>
+
+    </div>
+
+     <!-- Espaço -->
+    <div class="text-center py-4 border-top mt-4">
+
+        <!-- 👤 Usuário -->
+        <div class="text-white fw-bold">
+            {{ request.user.username }}
+        </div>
+
+        <!-- 🏷️ Grupo -->
+        <span class="badge 
+            {% if request.user.is_superuser %}bg-dark
+            {% elif request.user.groups.all.0.name == 'Diretoria' %}bg-success
+            {% elif request.user.groups.all.0.name == 'Comercial' %}bg-primary
+            {% else %}bg-secondary
+            {% endif %}
+        ">
+            {% if request.user.is_superuser %}
+                Admin
+            {% elif request.user.groups.all %}
+                {{ request.user.groups.all.0.name }}
+            {% else %}
+                Usuário
+            {% endif %}
+        </span>
+
+    </div>
+</nav>

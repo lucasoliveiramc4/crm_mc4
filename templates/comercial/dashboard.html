@@ -1,0 +1,307 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    
+    {% load pwa %}
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visão Geral - MC4 CRM</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=1.1">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        .filter-container { 
+            display: flex; 
+            overflow-x: auto; 
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 10px 0; 
+            border-radius: 8px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.581);
+
+        }
+        .card-kpi { 
+            transition: transform 0.2s;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.581);
+            
+        }
+        .card-kpi:hover { 
+            transform: translateY(-3px); 
+        }
+        .kpi-label { font-size: 0.85rem; font-weight: bold; color: aliceblue; text-transform: uppercase; }
+        .kpi-value { font-size: 1.8rem; font-weight: bold; color: aliceblue ; margin-top: 5px; }
+
+        body {
+            background: linear-gradient(135deg, #00A5B5, #416ba9);
+        }
+    </style>
+    {% progressive_web_app_meta %}
+</head>
+<body>
+
+    <!-- Inclui o componente global de menu lateral -->
+    {% include 'comercial/navbar.html' %}
+
+    <div id="content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3 class="fw-bold m-0 text-white">Visão Geral</h3>
+            <button type="button" class="btn text-white px-4 shadow-sm" style="background-color: var(--mc4-cyan); border-radius: 8px;" data-bs-toggle="modal" data-bs-target="#modalNovaOportunidade">
+                <i class="fas fa-plus me-2"></i> Nova Oportunidade
+            </button>
+        </div>
+
+         <!--FILTROS -->
+        <div class="row mb-5 filter-container d-flex justify-content-between align-items-center">
+            <form method="GET" class="row">
+
+            <!-- ✅ VENDEDOR -->
+             
+            {% if is_admin or is_diretoria %}
+            <div class="col-md-3">
+                <select name="vendedor" class="form-select">
+                    <option value="">Todos vendedores</option>
+                    {% for v in vendedores_lista %}
+                        <option value="{{ v.id }}"
+                            {% if request.GET.vendedor == v.id|stringformat:"s" %}selected{% endif %}>
+                            {{ v.nome }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            <!-- ✅ DATA INICIO -->
+            <div class="col-md-2">
+                <input type="date" name="data_inicio" class="form-control"
+                    value="{{ request.GET.data_inicio }}">
+            </div>
+
+            <!-- ✅ DATA FIM -->
+            <div class="col-md-2">
+                <input type="date" name="data_fim" class="form-control"
+                    value="{{ request.GET.data_fim }}">
+            </div>
+
+            <!-- ✅ ESTÁGIO -->
+            <div class="col-md-3">
+                <select name="estagio" class="form-select">
+                    <option value="">Todos estágios</option>
+                    {% for key, label in estagios %}
+                        <option value="{{ key }}"
+                            {% if request.GET.estagio == key %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- ✅ BOTÕES -->
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn w-100" style="background-color: var(--mc4-orange); color: white;">
+                    Filtrar
+                </button>
+                <a href="" class="btn btn-secondary w-100">
+                    Limpar
+                </a>
+            </div>
+
+            </form>
+        </div>
+
+        <!-- Camada Superior: Cards de KPI -->
+        <div class="row g-4 mb-5">
+            <div class="col-12 col-md-4">
+                <div class="card card-kpi p-4 border-start border-2" style="border-color: var(--mc4-orange) !important;">
+                    <div class="kpi-label">Oportunidades Ativas</div>
+                    <div class="kpi-value">{{ kpi_ativas }}</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="card card-kpi p-4 border-start border-2" style="border-color: var(--sidebar-bg) !important;">
+                    <div class="kpi-label">Pipeline Total</div>
+                    <div class="kpi-value">R$ {{ kpi_pipeline }}</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="card card-kpi p-4 border-start border-2" style="border-color: var(--mc4-lime) !important;">
+                    <div class="kpi-label">Ganhos Gerais</div>
+                    <div class="kpi-value">R$ {{ kpi_ganhos }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ✅ GRÁFICO DO FUNIL POR VENDEDOR -->
+        {% if is_admin or is_diretoria %}
+        <div class="card vidro-container rounded-4 mb-5">
+            <div class="card-body p-4">
+                <h5 class="fw-bold mb-4 text-white">
+                    <i class="fa-solid fa-chart-column me-2 text-white"></i>
+                    Funil por Comercial
+                </h5>
+
+                <canvas id="graficoFunil" style="max-height: 350px;"></canvas>
+            </div>
+        </div>
+        {% endif %}
+
+
+        <!-- Camada Inferior: Tabela Operacional -->
+        <div class="card vidro-container rounded-4">
+            <div class="card-body p-4">
+                <h5 class="fw-bold mb-4 text-white"><i class="fa-solid fa-clock-rotate-left me-2 text-white"></i>Últimas Movimentações</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle m-0">
+                        <thead class="table-light">
+                            <tr style="font-size: 0.85rem; color: #6c757d;">
+                                <th>CLIENTE / ANUNCIANTE</th>
+                                <th>PRODUTO</th>
+                                <th>COMERCIAL</th>  
+                                <th>VALOR ESTIMADO</th>
+                                <th>ESTÁGIO ATUAL</th>
+                            </tr>
+                        </thead>
+                        <tbody style="font-size: 0.9rem;">
+                            {% for op in ultimas_movimentacoes %}
+                            <tr>
+                                <td class="fw-bold">{{ op.cliente.nome }}</td>
+                                <td><span class="badge bg-light text-dark border-">{{ op.get_produto_formato_display }}</span></td>
+                                <td class="text-muted">{{ op.vendedor_responsavel.nome }}</td>
+                                <td class="fw-bold" style="color: var(--sidebar-bg);">R$ {{ op.valor_estimado }}</td>
+                                <td>
+                                    <span class="badge {% if op.estagio_funil == 'FECHADO' %}bg-success{% elif op.estagio_funil == 'PERDIDO' %}bg-danger{% else %}bg-primary{% endif %}">
+                                        {{ op.get_estagio_funil_display }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">Nenhuma movimentação financeira registrada.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL RÁPIDO DE CADASTRO -->
+    <div class="modal fade" id="modalNovaOportunidade" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header text-white" style="background-color: var(--mc4-cyan);">
+                    <h5 class="modal-title">Cadastrar Negócio Rápido</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" action="{% url 'kanban' %}">
+                    {% csrf_token %} 
+                    <div class="modal-body">
+                        <div class="mb-3"><label class="form-label fw-bold">Anunciante</label>{{ form.cliente }}</div>
+
+                        {% if is_admin or is_diretoria %}
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Vendedor</label>
+                            {{ form.vendedor_responsavel }}
+                        </div>
+                        {% endif %}
+
+                        <div class="row">
+                            <div class="col-6 mb-3"><label class="form-label fw-bold">Formato</label>{{ form.produto_formato }}</div>
+                            <div class="col-6 mb-3"><label class="form-label fw-bold">Valor</label>{{ form.valor_estimado }}</div>
+                        </div>
+                        <div class="mb-3"><label class="form-label fw-bold">Estágio Inicial</label>{{ form.estagio_funil }}</div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn" style="background-color: var(--mc4-cyan); color: white;">Criar Oportunidade</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Gatilho simplificado do menu responsivo mobile
+        document.getElementById('mobileMenuBtn').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.toggle('active');
+        });
+    </script>
+
+    <script>
+            {% if is_admin or is_diretoria %}
+
+            const dados = {{ grafico_funil|safe }};
+
+            const nomes = dados.map(item => item.nome);
+            const fechado = dados.map(item => item.fechado);
+            const aberto = dados.map(item => item.aberto);
+            const perdido = dados.map(item => item.perdido);
+
+            const ctx = document.getElementById('graficoFunil');
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: nomes,
+                    datasets: [
+                        {
+                            label: 'Fehado',
+                            data: fechado,
+                            backgroundColor: '#00A5B5'
+                        },
+                        {
+                            label: 'Em Aberto',
+                            data: aberto,
+                            backgroundColor: '#CEDB05'
+                        },
+                        {
+                            label: 'Perdido',
+                            data: perdido,
+                            backgroundColor: '#eb5727'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                             labels: {
+                    // Altera a cor do texto da legenda para branco
+                    color: '#ffffff' 
+                }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                // Altera a cor das linhas verticais
+                                color: 'rgba(255, 255, 255, 0.2)' 
+                            }
+                        },
+                        y: {
+                            grid: {
+                                // Altera a cor das linhas horizontais
+                                color: 'rgba(255, 255, 255, 0.2)' 
+                            }
+                        }
+                    }
+                }
+            });
+
+            {% endif %}
+    </script>
+
+</body>
+</html>
