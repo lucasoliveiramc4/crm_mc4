@@ -389,3 +389,27 @@ def adicionar_nota_ajax(request):
     except Exception as e:
         logger.error(str(e))
         return JsonResponse({'erro': str(e)}, status=400)    
+    
+@login_required(login_url='account_login')
+def buscar_detalhes_oportunidade(request, pk):
+    try:
+        op = get_object_or_404(Oportunidade, pk=pk)
+
+        if not pode_acessar(request.user, op):
+            return JsonResponse({'erro': 'Sem permissão'}, status=403)
+
+        tarefas = list(op.tarefas.values('id', 'descricao', 'concluida'))
+        historicos = list(op.historicos.values('texto', 'criada_em'))
+
+        # Formatar data
+        for h in historicos:
+            h['criada_em'] = h['criada_em'].strftime('%d/%m/%Y %H:%M')
+
+        return JsonResponse({
+            'tarefas': tarefas,
+            'historicos': historicos
+        })
+
+    except Exception as e:
+        logger.error(str(e))
+        return JsonResponse({'erro': str(e)}, status=400)
