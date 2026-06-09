@@ -323,3 +323,69 @@ def comercial_view(request):
     return render(request, 'comercial/comercial.html', {
         'vendedores': vendedores
     })
+
+@require_http_methods(["POST"])
+@login_required(login_url='account_login')
+def adicionar_tarefa_ajax(request):
+    try:
+        data = json.loads(request.body)
+        op = get_object_or_404(Oportunidade, id=data.get('oportunidade_id'))
+
+        if not pode_acessar(request.user, op):
+            return JsonResponse({'erro': 'Sem permissão'}, status=403)
+
+        tarefa = Tarefa.objects.create(
+            oportunidade=op,
+            descricao=data.get('descricao')
+        )
+
+        return JsonResponse({'id': tarefa.id, 'descricao': tarefa.descricao})
+
+    except Exception as e:
+        logger.error(str(e))
+        return JsonResponse({'erro': str(e)}, status=400)
+    
+
+@require_http_methods(["POST"])
+@login_required(login_url='account_login')
+def alternar_tarefa_ajax(request):
+    try:
+        data = json.loads(request.body)
+        tarefa = get_object_or_404(Tarefa, id=data.get('id'))
+
+        if not pode_acessar(request.user, tarefa.oportunidade):
+            return JsonResponse({'erro': 'Sem permissão'}, status=403)
+
+        tarefa.concluida = not tarefa.concluida
+        tarefa.save()
+
+        return JsonResponse({'concluida': tarefa.concluida})
+
+    except Exception as e:
+        logger.error(str(e))
+        return JsonResponse({'erro': str(e)}, status=400)    
+    
+
+@require_http_methods(["POST"])
+@login_required(login_url='account_login')
+def adicionar_nota_ajax(request):
+    try:
+        data = json.loads(request.body)
+        op = get_object_or_404(Oportunidade, id=data.get('oportunidade_id'))
+
+        if not pode_acessar(request.user, op):
+            return JsonResponse({'erro': 'Sem permissão'}, status=403)
+
+        nota = NotaHistorico.objects.create(
+            oportunidade=op,
+            texto=data.get('texto')
+        )
+
+        return JsonResponse({
+            'texto': nota.texto,
+            'data': nota.criada_em.strftime('%d/%m/%Y %H:%M')
+        })
+
+    except Exception as e:
+        logger.error(str(e))
+        return JsonResponse({'erro': str(e)}, status=400)    
