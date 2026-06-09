@@ -314,3 +314,12 @@ def atualizar_estagio_ajax(request):
     except Exception as e:
         logger.error(str(e))
         return JsonResponse({'erro': str(e)}, status=400)
+
+
+login_required(login_url='account_login')
+def comercial_view(request):
+    vendedores = Comercial.objects.all()
+
+    return render(request, 'comercial/comercial.html', {
+        'vendedores': vendedores
+    })
