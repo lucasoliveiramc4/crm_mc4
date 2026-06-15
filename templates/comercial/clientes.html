@@ -56,37 +56,38 @@
                     </tr>
                 </thead>
 
-                <tbody>
+               <tbody>
+                    {% if anunciantes or agencias %}
 
-                {% if anunciantes or agencias %}
+                        {% for cliente in anunciantes %}
+                        <tr>
+                            <td class="fw-bold">{{ cliente.nome }}</td>
+                            <td>{{ cliente.contato }}</td>
+                            <td>{{ cliente.get_tipo_display }}</td>
+                            <td>{{ cliente.segmento }}</td>
+                            <td>{{ cliente.vendedor_responsavel.nome|default:"—" }}</td>
+                        </tr>
+                        {% endfor %}
 
-                    {% for cliente in anunciantes %}
-                    <tr>
-                        <td class="fw-bold">{{ cliente.nome }}</td>
-                        <td>{{ cliente.get_tipo_display }}</td>
-                        <td>{{ cliente.segmento }}</td>
-                        <td>{{ cliente.vendedor_responsavel.nome }}</td>
-                    </tr>
-                    {% endfor %}
+                        {% for cliente in agencias %}
+                        <tr>
+                            <td class="fw-bold">{{ cliente.nome }}</td>
+                            <td>{{ cliente.contato }}</td>
+                            <td>{{ cliente.get_tipo_display }}</td>
+                            <td>{{ cliente.segmento }}</td>
+                            <td>{{ cliente.vendedor_responsavel.nome|default:"—" }}</td>
+                        </tr>
+                        {% endfor %}
 
-                    {% for cliente in agencias %}
-                    <tr>
-                        <td class="fw-bold">{{ cliente.nome }}</td>
-                        <td>{{ cliente.get_tipo_display }}</td>
-                        <td>{{ cliente.segmento }}</td>
-                        <td>{{ cliente.vendedor_responsavel.nome }}</td>
-                    </tr>
-                    {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted">
+                                Nenhum cliente encontrado
+                            </td>
+                        </tr>
+                    {% endif %}
 
-                {% else %}
-                    <tr>
-                        <td colspan="4" class="text-center text-muted">
-                            Nenhum cliente encontrado
-                        </td>
-                    </tr>
-                {% endif %}
-
-            </tbody>
+                    </tbody>
 
             </table>
 
@@ -139,7 +140,7 @@
 
                 <div class="modal-footer">
                     <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button class="btn btn-success">Salvar</button>
+                    <button type="submit" class="btn btn-success">Salvar</button>
                 </div>
 
             </form>

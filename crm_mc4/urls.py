@@ -4,6 +4,11 @@ from django.shortcuts import redirect
 from django.conf import settings
 from django.conf.urls.static import static
 
+
+def root_redirect(request):
+    return redirect('account_login')
+
+
 urlpatterns = [
     path('admin/', admin.site.urls),
 
@@ -16,13 +21,13 @@ urlpatterns = [
     # App CRM
     path('crm/', include('comercial.urls')),
 
-    # ✅ PWA (mantém root funcionando)
+    # PWA
     path('pwa/', include('pwa.urls')),
 
-    # ✅ ROOT REDIRECT (CORRETO)
-    path('', lambda request: redirect('/accounts/login/')),
+    # Root
+    path('', root_redirect),
 ]
 
-# ✅ apenas para desenvolvimento
+
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

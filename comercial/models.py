@@ -4,6 +4,9 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 
 
+# ================================
+# COMERCIAL (Vendedor)
+# ================================
 
 class Comercial(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -12,14 +15,20 @@ class Comercial(models.Model):
     ativo = models.BooleanField(default=True)
 
     def __str__(self):
-        return self.nome
+        return f"{self.nome} ({self.user.username})"
 
-    
     class Meta:
         verbose_name = "Vendedor / Comercial"
         verbose_name_plural = "Comerciais (Equipe)"
+        ordering = ['nome']
+
+
+# ================================
+# CLIENTE
+# ================================
 
 class Cliente(models.Model):
+
     TIPO_CHOICES = [
         ('CLIENTE_FINAL', 'Cliente Final / Anunciante'),
         ('AGENCIA', 'Agência de Publicidade'),
@@ -27,7 +36,6 @@ class Cliente(models.Model):
 
     nome = models.CharField(max_length=200)
 
-    # ✅ NOVO CAMPO
     contato = models.CharField(
         max_length=150,
         blank=True,
@@ -35,22 +43,48 @@ class Cliente(models.Model):
         verbose_name="Nome do contato"
     )
 
-    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
-    segmento = models.CharField(max_length=100, blank=True, null=True)
-    vendedor_responsavel = models.ForeignKey(Comercial, on_delete=models.PROTECT)
+    tipo = models.CharField(
+        max_length=20,
+        choices=TIPO_CHOICES
+    )
+
+    segmento = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True
+    )
+
+    # ✅ AJUSTE IMPORTANTE
+    vendedor_responsavel = models.ForeignKey(
+        Comercial,
+        on_delete=models.PROTECT,
+        related_name='clientes',
+        null=True,
+        blank=True
+    )
+
+    criado_em = models.DateTimeField(auto_now_add=True, null=True)
 
     def __str__(self):
         return f"{self.nome} ({self.get_tipo_display()})"
 
+    class Meta:
+        ordering = ['nome']
+
+
+# ================================
+# OPORTUNIDADE (FUNIL)
+# ================================
+
 class Oportunidade(models.Model):
+
     PRODUTO_CHOICES = [
         ('LED', 'Painel LED'),
         ('BRT', 'BRT'),
         ('CENOGRAFICO', 'Cenografia'),
         ('PROMO', 'Promocional OOH'),
     ]
-    
-    
+
     ESTAGIO_CHOICES = [
         ('PROSPECCAO', 'Prospecção'),
         ('SOLICITACAO', 'Solicitação de Proposta'),
@@ -60,69 +94,138 @@ class Oportunidade(models.Model):
         ('PERDIDO', 'Perdido'),
     ]
 
+    cliente = models.ForeignKey(
+        Cliente,
+        on_delete=models.CASCADE,
+        related_name='oportunidades',
+        db_index=True
+    )
 
-    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='oportunidades')
-    agencia = models.ForeignKey(Cliente, on_delete=models.SET_NULL, blank=True, null=True, limit_choices_to={'tipo': 'AGENCIA'}, related_name='oportunidades_agencia')
-    vendedor_responsavel = models.ForeignKey(Comercial, on_delete=models.PROTECT)
-    
+    agencia = models.ForeignKey(
+        Cliente,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        limit_choices_to={'tipo': 'AGENCIA'},
+        related_name='oportunidades_agencia'
+    )
+
+    vendedor_responsavel = models.ForeignKey(
+        Comercial,
+        on_delete=models.PROTECT,
+        related_name='oportunidades'
+    )
+
     produto_formato = models.CharField(max_length=20, choices=PRODUTO_CHOICES)
-    valor_estimado = models.DecimalField(decimal_places=2, max_digits=12, null=True, blank=True)
 
-    estagio_funil = models.CharField(max_length=20, choices=ESTAGIO_CHOICES, default='PROSPECCAO')
-    
+    valor_estimado = models.DecimalField(
+        decimal_places=2,
+        max_digits=12,
+        null=True,
+        blank=True
+    )
+
+    estagio_funil = models.CharField(
+        max_length=20,
+        choices=ESTAGIO_CHOICES,
+        default='PROSPECCAO',
+        db_index=True
+    )
+
     data_entrada = models.DateField(auto_now_add=True)
     data_desfecho = models.DateField(blank=True, null=True)
-    
-    descricao = models.TextField(blank=True, null=True, verbose_name="Descrição:")
-    
+
+    descricao = models.TextField(blank=True, null=True)
     motivo_perda = models.TextField(blank=True, null=True)
+
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    data_followup = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Data de Follow-up"
+    )
+
+    # ================================
+    # VALIDAÇÕES
+    # ================================
 
     def clean(self):
         errors = {}
 
         if self.estagio_funil == 'PERDIDO' and not self.motivo_perda:
-            errors['motivo_perda'] = 'O motivo de perda é obrigatório quando o estágio é Perdido.'
+            errors['motivo_perda'] = 'Informe o motivo da perda.'
 
         if self.estagio_funil == 'FECHADO' and not self.valor_estimado:
-            errors['valor_estimado'] = 'Valor obrigatório para fechar negócio.'
+            errors['valor_estimado'] = 'Informe o valor para fechar o negócio.'
 
         if errors:
             raise ValidationError(errors)
 
-
     def save(self, *args, **kwargs):
-        self.full_clean()
+        if not kwargs.pop('skip_clean', False):
+            self.full_clean()
         super().save(*args, **kwargs)
 
-    def __str__(self):
-        return f"{self.cliente.nome} - {self.get_produto_formato_display()}"
-    
-    # Garante que a data de criação seja salva automaticamente
-    criado_em = models.DateTimeField(auto_now_add=True)
-    
-    # Novo campo para o próximo contato
-    data_followup = models.DateField(null=True, blank=True, verbose_name="Data de Follow-up")
+    # ================================
+    # STATUS FOLLOWUP
+    # ================================
 
-    # Propriedade inteligente para pintar o card no HTML
     @property
     def status_followup(self):
         if not self.data_followup:
             return 'sem_data'
-        if self.data_followup < timezone.now().date():
-            return 'atrasado' # Vermelho
-        return 'no_prazo' # Verde
+
+        hoje = timezone.now().date()
+
+        if self.data_followup < hoje:
+            return 'atrasado'
+
+        return 'no_prazo'
+
+    def __str__(self):
+        return f"{self.cliente.nome} - {self.get_produto_formato_display()}"
+
+
+# ================================
+# TAREFAS
+# ================================
 
 class Tarefa(models.Model):
-    oportunidade = models.ForeignKey(Oportunidade, on_delete=models.CASCADE, related_name='tarefas')
+    oportunidade = models.ForeignKey(
+        Oportunidade,
+        on_delete=models.CASCADE,
+        related_name='tarefas'
+    )
+
     descricao = models.CharField(max_length=255)
     concluida = models.BooleanField(default=False)
     criada_em = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        ordering = ['-criada_em']
+
+    def __str__(self):
+        return self.descricao
+
+
+# ================================
+# HISTÓRICO / NOTAS
+# ================================
+
 class NotaHistorico(models.Model):
-    oportunidade = models.ForeignKey(Oportunidade, on_delete=models.CASCADE, related_name='historicos')
+    oportunidade = models.ForeignKey(
+        Oportunidade,
+        on_delete=models.CASCADE,
+        related_name='historicos'
+    )
+
     texto = models.TextField()
     criada_em = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         verbose_name_plural = "Notas do Histórico"
         ordering = ['-criada_em']
+
+    def __str__(self):
+        return f"Nota - {self.oportunidade.cliente.nome}"

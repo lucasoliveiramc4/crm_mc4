@@ -14,63 +14,122 @@
     <title>Pipeline Kanban - MC4 CRM</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=1.2">
     <style>
-        body {
-            background: linear-gradient(135deg, #00A5B5, #416ba9);
-        }
-        .filter-container { 
-            display: flex; 
-            overflow-x: auto; 
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            padding: 10px 0; 
-            border-radius: 8px;
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.581);
+                /* =========================================================
+            ESTRUTURA GERAL
+            ========================================================= */
+            body { 
+                background: linear-gradient(135deg, #00A5B5, #416ba9); 
+                min-height: 100vh; 
+                margin: 0;   
+                overflow-x: hidden;
+                overflow-y: auto;
 
-        }
-        .kanban-board { 
-            display: flex; 
-            overflow-x: auto; 
-            padding: 10px 0; 
-            gap: 15px; 
-            min-height: 75vh; 
-        }
-        .kanban-column { 
-            background-color: #ebecf00c; 
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.581);
-            min-width: 290px; 
-            max-width: 310px; 
-            padding: 15px; 
-            border-radius: 8px; 
-            transition: background-color 0.2s; 
-            display: flex; 
-            flex-direction: column; 
-        }
-        .kanban-column h6 { font-weight: bold; color: aliceblue; text-transform: uppercase; margin-bottom: 15px; }
-        .cards-container { flex-grow: 1; min-height: 50vh; }
-        .opportunity-card { 
-            border: none; 
-            border-radius: 6px; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
-            margin-bottom: 10px; 
-            transition: transform 0.2s, box-shadow 0.2s; 
-            cursor: pointer; 
-            background-color: #ebecf0fc; 
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-        }
-        .opportunity-card:active { cursor: grabbing; }
-        .opportunity-card.dragging { opacity: 0.5; transform: scale(0.95); }
-        .opportunity-card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        .drag-over { background-color: #dfe1e6; border: 2px dashed #b3bac5; }
-        .text-empty { display: block; }
-        .timeline-item { border-left: 2px solid var(--mc4-cyan); padding-left: 12px; margin-bottom: 12px; position: relative; }
-        .timeline-item::before { content: ''; position: absolute; left: -6px; top: 4px; width: 10px; height: 10px; background: var(--mc4-cyan); border-radius: 50%; }
-        .task-done { text-decoration: line-through; color: #6c757d; }
+            }
+
+            #content {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 80px); /* ajusta conforme navbar */
+            overflow: hidden
+            }
+
+         
+            /* =========================================================
+            ELEMENTOS ESTÁTICOS (Cabeçalho e Filtros)
+            ========================================================= */
+            .filter-container { 
+                background: rgba(255,255,255,0.05); 
+                border: 1px solid rgba(255,255,255,0.1); 
+                backdrop-filter: blur(12px); 
+                border-radius: 16px; 
+                padding: 20px;
+                margin-bottom: 20px;
+                flex-shrink: 0; /* Impede que os filtros sejam espremidos */
+            }
+
+            /* =========================================================
+            KANBAN (Área que rola)
+            ========================================================= */
+            .kanban-wrapper {
+                flex: 1; /* Ocupa todo o espaço restante abaixo dos filtros */
+                overflow-x: auto; /* Scroll horizontal apenas aqui */
+                overflow-y: hidden;
+                display: flex;
+                align-items: stretch;
+                min-height: 0;
+            }
+
+            .kanban-board { 
+                display: flex;
+                flex-wrap: nowrap; 
+                gap: 15px;
+                height: 100%; /* Estica as colunas até o fim da tela */
+            }
+
+            .kanban-column {
+                background-color: rgba(255,255,255,0.08);
+                backdrop-filter: blur(12px);
+                min-width: 300px;
+                width: 300px;
+                padding: 10px;
+                border-radius: 10px;
+                display: flex;
+                flex-direction: column;
+                height: 100%;
+            }
+
+            .column-header { 
+                position: sticky; top: 0; z-index: 2; 
+                background: rgba(0,0,0,0.2); 
+                padding: 10px; 
+                border-radius: 5px; 
+                margin-bottom: 10px; 
+            }
+
+            .cards-container { 
+                flex-grow: 1; 
+                overflow-y: auto; 
+                padding-right: 5px; 
+            }
+
+            /* =========================================================
+            COMPONENTES E INTERAÇÃO
+            ========================================================= */
+            .opportunity-card { 
+                border: none; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
+                margin-bottom: 10px; cursor: pointer; background-color: #ebecf0fc; 
+                transition: transform 0.2s;
+            }
+            .opportunity-card:hover { transform: translateY(-2px); }
+            .drag-over { background-color: rgba(255,255,255,0.2); border: 2px dashed #fff; }
+
+            /* Scrollbar estilizada */
+            .kanban-wrapper::-webkit-scrollbar, .cards-container::-webkit-scrollbar { width: 8px; height: 8px; }
+            .kanban-wrapper::-webkit-scrollbar-thumb, .cards-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 8px; }
+
+            /* Formulários */
+            .form-select:focus, .form-control:focus {
+                background-color: rgba(255, 255, 255, 0.1) !important;
+                color: white !important;
+                border-color: var(--mc4-cyan) !important;
+                box-shadow: 0 0 0 0.25rem rgba(0, 165, 181, 0.25);
+            }
+
+            select option {
+                background-color: var(--mc4-cyan) !important;
+                color: #ffffff !important;
+                padding: 10px;
+            }
+
+            select.form-select {
+                background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='white' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important;
+            }
+
+            @media (max-width: 768px) {
+                .kanban-column { flex: 1 1 100%; min-width: 90vw; }
+            }
     </style>
 </head>
 <body>
@@ -82,313 +141,327 @@
     <div id="content">
 
         <!-- Cabeçalho -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h3 class="fw-bold m-0 text-white">Funil Comercial</h3>
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
             <div>
-                <button type="button" class="btn text-white px-4 shadow-sm" style="background-color: var(--mc4-cyan); border-radius: 8px;" onclick="prepararNovoCadastro()">
-                    <i class="fa-solid fa-plus me-1"></i> Nova Oportunidade
-                </button>
+                <h3 class="fw-bold m-0 text-white">Funil Comercial</h3>
+                <p class="text-white-50 small m-0">Gerencie suas oportunidades de negócio em tempo real</p>
             </div>
+            <button type="button" class="btn btn-lg text-white shadow-sm px-4" style="background-color: var(--mc4-cyan); border-radius: 12px;" onclick="prepararNovoCadastro()">
+                <i class="fa-solid fa-plus me-2"></i> Nova Oportunidade
+            </button>
         </div>
 
-        <!--FILTROS -->
-        <div class="row mb-2 filter-container d-flex justify-content-between align-items-center">
-            <form method="GET" class="row">
-
-            <!-- ✅ VENDEDOR -->
-             
-            {% if is_admin or is_diretoria %}
-            <div class="col-md-3">
-                <select name="vendedor" class="form-select">
-                    <option value="">Todos vendedores</option>
-                    {% for v in vendedores_lista %}
-                        <option value="{{ v.id }}"
-                            {% if request.GET.vendedor == v.id|stringformat:"s" %}selected{% endif %}>
-                            {{ v.nome }}
-                        </option>
-                    {% endfor %}
-                </select>
-            </div>
-            {% endif %}
-
-            <!-- ✅ DATA INICIO -->
-            <div class="col-md-2">
-                <input type="date" name="data_inicio" class="form-control"
-                    value="{{ request.GET.data_inicio }}">
+        <!-- Filtros -->
+        <div class="filter-container p-4 mb-4 shadow-sm" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px;">
+            
+            <div class="d-flex flex-wrap gap-2 mb-4">
+                <span class="text-white-50 align-self-center me-2 small">Período:</span>
+                <a href="?data_inicio={{ primeiro_dia_mes|date:'Y-m-d' }}&data_fim={{ hoje|date:'Y-m-d' }}" class="btn btn-sm btn-outline-light rounded-pill px-3 {% if request.GET.data_inicio == primeiro_dia_mes|date:'Y-m-d' %}active{% endif %}">Este mês</a>
+                <a href="?data_inicio={{ ultimos_30_dias|date:'Y-m-d' }}&data_fim={{ hoje|date:'Y-m-d' }}" class="btn btn-sm btn-outline-light rounded-pill px-3 {% if request.GET.data_inicio == ultimos_30_dias|date:'Y-m-d' %}active{% endif %}">Últimos 30 dias</a>
+                <a href="?data_inicio={{ primeiro_dia_ano|date:'Y-m-d' }}&data_fim={{ hoje|date:'Y-m-d' }}" class="btn btn-sm btn-outline-light rounded-pill px-3 {% if request.GET.data_inicio == primeiro_dia_ano|date:'Y-m-d' %}active{% endif %}">Este ano</a>
             </div>
 
-            <!-- ✅ DATA FIM -->
-            <div class="col-md-2">
-                <input type="date" name="data_fim" class="form-control"
-                    value="{{ request.GET.data_fim }}">
-            </div>
+            <form method="GET" class="row g-3 align-items-end">
+                {% if is_admin or is_diretoria %}
+                <div class="col-12 col-md-3">
+                    <label class="text-white-50 small mb-1 fw-bold">Vendedor</label>
+                    <select name="vendedor" class="form-select bg-transparent text-white border-light-subtle">
+                        <option value="">Todos</option>
+                        {% for v in vendedores_lista %}
+                            <option value="{{ v.id }}"
+                                {% if request.GET.vendedor == v.id|stringformat:"s" %}selected{% endif %}>
+                                {{ v.nome }}
+                            </option>
+                        {% endfor %}
+                        </select>
+                </div>
+                {% endif %}
+                
+                <div class="col-6 col-md-2">
+                    <label class="text-white-50 small mb-1 fw-bold">Data Início</label>
+                    <input type="date" name="data_inicio" class="form-control bg-transparent text-white border-light-subtle" value="{{ request.GET.data_inicio }}">
+                </div>
+                
+                <div class="col-6 col-md-2">
+                    <label class="text-white-50 small mb-1 fw-bold">Data Fim</label>
+                    <input type="date" name="data_fim" class="form-control bg-transparent text-white border-light-subtle" value="{{ request.GET.data_fim }}">
+                </div>
 
-            <!-- ✅ ESTÁGIO -->
-            <div class="col-md-3">
-                <select name="estagio" class="form-select">
-                    <option value="">Todos estágios</option>
-                    {% for key, label in estagios %}
-                        <option value="{{ key }}"
-                            {% if request.GET.estagio == key %}selected{% endif %}>
-                            {{ label }}
-                        </option>
-                    {% endfor %}
-                </select>
-            </div>
+                <div class="col-6 col-md-3">
+                    <label class="text-white-50 small mb-1 fw-bold">Estágio</label>
+                    <select name="estagio" class="form-select bg-transparent text-white border-light-subtle">
+                        <option value="">Todos estágios</option>
+                         {% for key, label in estagios %}
+                            <option value="{{ key }}"
+                                {% if request.GET.estagio == key %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                        {% endfor %}
+                        </select>
+                </div>
 
-            <!-- ✅ BOTÕES -->
-            <div class="col-md-2 d-flex gap-2">
-                <button type="submit" class="btn w-100" style="background-color: var(--mc4-cyan); color: white;">
-                    Filtrar
-                </button>
-                <a href="" class="btn btn-secondary w-100">
-                    Limpar
-                </a>
-            </div>
-
+                <div class="col-6 col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn w-100 fw-bold" style="background-color: var(--mc4-cyan); border-color: var(--mc4-cyan); color: white;">Filtrar</button>
+                    <a href="" class="btn btn-outline-light w-100">Limpar</a>
+                </div>
             </form>
         </div>
-        <!--Funil de Vendas -->
-        <div class="kanban-board">
 
-            <!-- COLUNA: PROSPECÇÃO -->
-            <div class="kanban-column" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)" ondrop="drop(event, 'PROSPECCAO')" style="border-top: 4px solid var(--mc4-cyan);">
-                <h6 class="column-title">Prospecção (<span class="count">{{ prospeccao.count }}</span>)</h6>
-                
-                <!-- Cartões de Oportunidades -->
-                <div class="cards-container">
-                    {% for op in prospeccao %}
-                    <div class="card opportunity-card" id="card-{{ op.id }}" draggable="true" ondragstart="drag(event, '{{ op.id }}')" ondragend="dragEnd(event)" 
-                         onclick="prepararEdicao('{{ op.id }}', '{{ op.cliente.id }}', '{{ op.agencia.id|default:'' }}', '{{ op.vendedor_responsavel.id }}', '{{ op.produto_formato }}', '{{ op.valor_estimado|stringformat:'.2f' }}', '{{ op.estagio_funil }}', '{{ op.data_followup|date:'Y-m-d'|default:'' }}', '{{ op.descricao|default:""|escapejs }}')">
-                        <div class="card-body">
-                            <h6 class="card-title mb-1 fw-bold" style="color: var(--sidebar-bg);">{{ op.cliente.nome }}</h6>
-                            {% if op.agencia %}<p class="mb-1"><small class="badge bg-light text-dark border"><i class="fa-solid fa-building me-1"></i>Ag: {{ op.agencia.nome }}</small></p>{% endif %}
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="badge bg-secondary">{{ op.get_produto_formato_display }}</span>
-                            </div>
-                            <p class="text-muted small mb-0">Comercial: {{ op.vendedor_responsavel.nome }}</p>
-                           
-                            {% if op.data_followup %}
-                            <p class="text-muted small">
-                                Follow-up: {{ op.data_followup|date:'d/m/Y' }}
+        <div class="kanban-wrapper">
+             <!--Funil de Vendas -->
+            <div class="kanban-board">
 
-                                {% if op.status_followup == 'atrasado' %}
-                                    <span class="badge bg-danger">Atrasado</span>
-                                {% elif op.status_followup == 'no_prazo' %}
-                                    <span class="badge bg-success">Em dia</span>
-                                {% endif %}
-                            </p>
-                            {% endif %}
-
-                            {% if op.descricao %}<p class="text-muted small mb-2 border-start ps-2 border-secondary" style="font-size: 0.85rem;">📝 {{ op.descricao|truncatewords:15 }}</p>{% endif %}
-                            <div>
-                               <strong style="color: var(--mc4-cyan);">R$ {{ op.valor_estimado }}</strong>
-                            </div>
-                        </div>
+                <!-- COLUNA: PROSPECÇÃO -->
+                <div class="kanban-column" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)" ondrop="drop(event, 'PROSPECCAO')" style="border-top: 4px solid var(--mc4-cyan);">
+                    <div class="column-header">
+                        <h6 class="m-0 text-white">Prospecção (<span class="count">{{ prospeccao.count }}</span>)</h6>
                     </div>
-                    {% empty %} <p class="text-muted small text-center mt-3 text-empty">Nenhum negócio</p> {% endfor %}
-                </div>
-            </div>
-
-            <!-- COLUNA: Solicitação de Proposta -->
-            <div class="kanban-column" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)" ondrop="drop(event, 'SOLICITACAO')" style="border-top: 4px solid var(--mc4-cyan);">
-                <h6>Solicitação de Proposta ({{ solicitacao.count }})</h6>
-
-                <!-- Cartões de Oportunidades | Solicitação de Proposta -->
-                <div class="cards-container">
-                    {% for op in solicitacao %}
-                    <div class="card opportunity-card" id="card-{{ op.id }}" draggable="true" 
-                        ondragstart="drag(event, '{{ op.id }}')" ondragend="dragEnd(event)"
-                        onclick="prepararEdicao('{{ op.id }}', '{{ op.cliente.id }}', '{{ op.agencia.id|default:'' }}', '{{ op.vendedor_responsavel.id }}', '{{ op.produto_formato }}', '{{ op.valor_estimado|stringformat:'.2f' }}', '{{ op.estagio_funil }}', '{{ op.data_followup|date:'Y-m-d'|default:'' }}', '{{ op.descricao|default:""|escapejs }}')">
-                        
-                        <!-- Card -->
-                        <div class="card-body">
-                            <h6 class="card-title mb-1 fw-bold" style="color: var(--sidebar-bg);">{{ op.cliente.nome }}</h6>
-                            {% if op.agencia %}<p class="mb-1"><small class="badge bg-light text-dark border"><i class="fa-solid fa-building me-1"></i>Ag: {{ op.agencia.nome }}</small></p>{% endif %}
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="badge bg-secondary">{{ op.get_produto_formato_display }}</span>
-                            </div>
-                            <p class="text-muted small mb-0">Comercial: {{ op.vendedor_responsavel.nome }}</p>
-
-                            {% if op.data_followup %}
-                            <p class="text-muted small">
-                                Follow-up: {{ op.data_followup|date:'d/m/Y' }}
-
-                                {% if op.status_followup == 'atrasado' %}
-                                    <span class="badge bg-danger">Atrasado</span>
-                                {% elif op.status_followup == 'no_prazo' %}
-                                    <span class="badge bg-success">Em dia</span>
-                                {% endif %}
-                            </p>
-                            {% endif %}
-
-                            {% if op.descricao %}<p class="text-muted small mb-2 border-start ps-2 border-secondary" style="font-size: 0.85rem;">📝 {{ op.descricao|truncatewords:15 }}</p>{% endif %}
-                            <div>
-                               <strong style="color: var(--mc4-cyan);">R$ {{ op.valor_estimado }}</strong>
-                            </div>
-                        </div>
-                    </div>
-                    {% empty %}
-                    <p class="text-muted small text-center mt-3 text-empty">Nenhum negócio</p>
-                    {% endfor %}
-                </div>
-            </div>
-
-            <!-- COLUNA: PROPOSTA -->
-            <div class="kanban-column" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)" ondrop="drop(event, 'PROPOSTA')" style="border-top: 4px solid var(--sidebar-bg);">
-                <h6 class="column-title">Proposta Enviada (<span class="count">{{ proposta.count }}</span>)</h6>
-
-                <!-- Cartões de Oportunidades | Proposta -->
-                <div class="cards-container">
-                    {% for op in proposta %}
-                    <div class="card opportunity-card" id="card-{{ op.id }}" draggable="true" ondragstart="drag(event, '{{ op.id }}')" ondragend="dragEnd(event)"
-                         onclick="prepararEdicao('{{ op.id }}', '{{ op.cliente.id }}', '{{ op.agencia.id|default:'' }}', '{{ op.vendedor_responsavel.id }}', '{{ op.produto_formato }}', '{{ op.valor_estimado|stringformat:'.2f' }}', '{{ op.estagio_funil }}',  '{{ op.data_followup|date:'Y-m-d'|default:'' }}', '{{ op.descricao|default:""|escapejs }}')">
-                        
-                         <!-- Card -->
-                        <div class="card-body">
-                            <h6 class="card-title mb-1 fw-bold" style="color: var(--sidebar-bg);">{{ op.cliente.nome }}</h6>
-                            {% if op.agencia %}<p class="mb-1"><small class="badge bg-light text-dark border"><i class="fa-solid fa-building me-1"></i>Ag: {{ op.agencia.nome }}</small></p>{% endif %}
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="badge bg-secondary">{{ op.get_produto_formato_display }}</span>
-                            </div>
-                            <p class="text-muted small mb-0">Comercial: {{ op.vendedor_responsavel.nome }}</p>
-
+                    
+                    <!-- Cartões de Oportunidades -->
+                    <div class="cards-container">
+                        {% for op in prospeccao %}
+                        <div class="card opportunity-card" id="card-{{ op.id }}" draggable="true" ondragstart="drag(event, '{{ op.id }}')" ondragend="dragEnd(event)" 
+                            onclick="prepararEdicao('{{ op.id }}', '{{ op.cliente.id }}', '{{ op.agencia.id|default:'' }}', '{{ op.vendedor_responsavel.id }}', '{{ op.produto_formato }}', '{{ op.valor_estimado|default:"0.00"|floatformat:2 }}', '{{ op.estagio_funil }}', '{{ op.data_followup|date:'Y-m-d'|default:'' }}', '{{ op.descricao|default:""|escapejs }}')">
+                            <div class="card-body">
+                                <h6 class="card-title mb-1 fw-bold" style="color: var(--sidebar-bg);">{{ op.cliente.nome }}</h6>
+                                {% if op.agencia %}<p class="mb-1"><small class="badge bg-light text-dark border"><i class="fa-solid fa-building me-1"></i>Ag: {{ op.agencia.nome }}</small></p>{% endif %}
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="badge bg-secondary">{{ op.get_produto_formato_display }}</span>
+                                </div>
+                                <p class="text-muted small mb-0">Comercial: {{ op.vendedor_responsavel.nome }}</p>
                             
-                            {% if op.data_followup %}
-                            <p class="text-muted small">
-                                Follow-up: {{ op.data_followup|date:'d/m/Y' }}
+                                {% if op.data_followup %}
+                                <p class="text-muted small">
+                                    Follow-up: {{ op.data_followup|date:'d/m/Y' }}
 
-                                {% if op.status_followup == 'atrasado' %}
-                                    <span class="badge bg-danger">Atrasado</span>
-                                {% elif op.status_followup == 'no_prazo' %}
-                                    <span class="badge bg-success">Em dia</span>
+                                    {% if op.status_followup == 'atrasado' %}
+                                        <span class="badge bg-danger">Atrasado</span>
+                                    {% elif op.status_followup == 'no_prazo' %}
+                                        <span class="badge bg-success">Em dia</span>
+                                    {% endif %}
+                                </p>
                                 {% endif %}
-                            </p>
-                            {% endif %}
 
-                            {% if op.descricao %}<p class="text-muted small mb-2 border-start ps-2 border-secondary" style="font-size: 0.85rem;">📝 {{ op.descricao|truncatewords:15 }}</p>{% endif %}
-                            <div>
-                               <strong style="color: var(--mc4-cyan);">R$ {{ op.valor_estimado }}</strong>
+                                {% if op.descricao %}<p class="text-muted small mb-2 border-start ps-2 border-secondary" style="font-size: 0.85rem;">📝 {{ op.descricao|truncatewords:15 }}</p>{% endif %}
+                                <div>
+                                <strong style="color: var(--mc4-cyan);">R$ {{ op.valor_estimado }}</strong>
+                                </div>
                             </div>
                         </div>
+                        {% empty %} <p class="text-muted small text-center mt-3 text-empty">Nenhum negócio</p> {% endfor %}
                     </div>
-                    {% empty %} <p class="text-muted small text-center mt-3 text-empty">Nenhum negócio</p> {% endfor %}
                 </div>
-            </div>
 
-            <!-- COLUNA: NEGOCIAÇÃO -->
-            <div class="kanban-column" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)" ondrop="drop(event, 'NEGOCIACAO')" style="border-top: 4px solid var(--sidebar-bg);">
-                <h6 class="column-title">Negociação (<span class="count">{{ negociacao.count }}</span>)</h6>
-                
-                <!-- Cartões de Oportunidades | Negociação -->
-                <div class="cards-container">
-                    {% for op in negociacao %}
-                    <div class="card opportunity-card" id="card-{{ op.id }}" draggable="true" ondragstart="drag(event, '{{ op.id }}')" ondragend="dragEnd(event)"
-                         onclick="prepararEdicao('{{ op.id }}', '{{ op.cliente.id }}', '{{ op.agencia.id|default:'' }}', '{{ op.vendedor_responsavel.id }}', '{{ op.produto_formato }}', '{{ op.valor_estimado|stringformat:'.2f' }}', '{{ op.estagio_funil }}', '{{ op.data_followup|date:'Y-m-d'|default:'' }}', '{{ op.descricao|default:""|escapejs }}')">
-                        
-                         <!-- Card -->
-                        <div class="card-body">
-                            <h6 class="card-title mb-1 fw-bold" style="color: var(--sidebar-bg);">{{ op.cliente.nome }}</h6>
-                            {% if op.agencia %}<p class="mb-    1"><small class="badge bg-light text-dark border"><i class="fa-solid fa-building me-1"></i>Ag: {{ op.agencia.nome }}</small></p>{% endif %}
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="badge bg-secondary">{{ op.get_produto_formato_display }}</span>
-                            </div>
-                            <p class="text-muted small mb-2">Comercial: {{ op.vendedor_responsavel.nome }}</p>
-
-
-                           {% if op.data_followup %}
-                            <p class="text-muted small">
-                                Follow-up: {{ op.data_followup|date:'d/m/Y' }}
-
-                                {% if op.status_followup == 'atrasado' %}
-                                    <span class="badge bg-danger">Atrasado</span>
-                                {% elif op.status_followup == 'no_prazo' %}
-                                    <span class="badge bg-success">Em dia</span>
-                                {% endif %}
-                            </p>
-                            {% endif %}
-
-                            {% if op.descricao %}<p class="text-muted small mb-2 border-start ps-2 border-secondary" style="font-size: 0.85rem;">📝 {{ op.descricao|truncatewords:15 }}</p>{% endif %}
-                            <div>
-                               <strong style="color: var(--mc4-cyan);">R$ {{ op.valor_estimado }}</strong>
-                            </div>
-                        </div>
+                <!-- COLUNA: Solicitação de Proposta -->
+                <div class="kanban-column" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)" ondrop="drop(event, 'SOLICITACAO')" style="border-top: 4px solid var(--mc4-cyan);">
+                    <div class="column-header">
+                        <h6 class="m-0 text-white">Solicitação de Proposta ({{ solicitacao.count }})</h6>
                     </div>
-                    {% empty %} <p class="text-muted small text-center mt-3 text-empty">Nenhum negócio</p> {% endfor %}
-                </div>
-            </div>
 
-            
-            <!-- COLUNA: FECHADO -->
-            <div class="kanban-column" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)" ondrop="drop(event, 'FECHADO')" style="background-color: #e2f0d9; border-top: 4px solid var(--mc4-lime);">
-                <h6 class="text-success column-title">Fechado (<span class="count">{{ fechado.count }}</span>)</h6>
-                
-                <!-- Cartões de Oportunidades | Fechado -->
-                <div class="cards-container">
-                    {% for op in fechado %}
-                    <div class="card opportunity-card border-start border-success border-3" id="card-{{ op.id }}" draggable="true" ondragstart="drag(event, '{{ op.id }}')" ondragend="dragEnd(event)"
-                         onclick="prepararEdicao('{{ op.id }}', '{{ op.cliente.id }}', '{{ op.agencia.id|default:'' }}', '{{ op.vendedor_responsavel.id }}', '{{ op.produto_formato }}', '{{ op.valor_estimado|stringformat:'.2f' }}', '{{ op.estagio_funil }}', '{{ op.data_followup|date:'Y-m-d'|default:'' }}', '{{ op.descricao|default:""|escapejs }}')">
-                        
-                            <!-- Card -->
-                         <div class="card-body">
-                            <h6 class="card-title text-success mb-1 fw-bold">{{ op.cliente.nome }}</h6>
-                            <p class="text-muted small mb-2">Comercial: {{ op.vendedor_responsavel.nome }}</p>
+                    <!-- Cartões de Oportunidades | Solicitação de Proposta -->
+                    <div class="cards-container">
+                        {% for op in solicitacao %}
+                        <div class="card opportunity-card" id="card-{{ op.id }}" draggable="true" 
+                            ondragstart="drag(event, '{{ op.id }}')" ondragend="dragEnd(event)"
+                            onclick="prepararEdicao('{{ op.id }}', '{{ op.cliente.id }}', '{{ op.agencia.id|default:'' }}', '{{ op.vendedor_responsavel.id }}', '{{ op.produto_formato }}', '{{ op.valor_estimado|default:"0.00"|floatformat:2 }}', '{{ op.estagio_funil }}', '{{ op.data_followup|date:'Y-m-d'|default:'' }}', '{{ op.descricao|default:""|escapejs }}')">
                             
-                            {% if op.data_followup %}
-                            <p class="text-muted small">
-                                Follow-up: {{ op.data_followup|date:'d/m/Y' }}
-
-                                {% if op.status_followup == 'atrasado' %}
-                                    <span class="badge bg-danger">Atrasado</span>
-                                {% elif op.status_followup == 'no_prazo' %}
-                                    <span class="badge bg-success">Em dia</span>
-                                {% endif %}
-                            </p>
-                            {% endif %}
-
-                            {% if op.descricao %}<p class="text-muted small mb-2 border-start ps-2 border-secondary" style="font-size: 0.85rem;">📝 {{ op.descricao|truncatewords:15 }}</p>{% endif %}
-                            <div>
-                               <strong style="color: var(--mc4-cyan);">R$ {{ op.valor_estimado }}</strong>
-                            </div>
-                        </div>
-                    </div>
-                    {% empty %} <p class="text-muted small text-center mt-3 text-empty">Nenhum contrato</p> {% endfor %}
-                </div>
-            </div>
-
-            <!-- COLUNA: PERDIDO -->
-            <div class="kanban-column" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)" ondrop="drop(event, 'PERDIDO')" style="background-color: #fce8e6; border-top: 4px solid var(--mc4-orange);">
-                <h6 class="text-danger column-title">Perdido (<span class="count">{{ perdido.count }}</span>)</h6>
-                <div class="cards-container">
-                    {% for op in perdido %}
-                    <div class="card opportunity-card border-start border-danger border-3" id="card-{{ op.id }}" draggable="true" ondragstart="drag(event, '{{ op.id }}')" ondragend="dragEnd(event)"
-                         onclick="prepararEdicao('{{ op.id }}', '{{ op.cliente.id }}', '{{ op.agencia.id|default:'' }}', '{{ op.vendedor_responsavel.id }}', '{{ op.produto_formato }}', '{{ op.valor_estimado|stringformat:'.2f' }}', '{{ op.estagio_funil }}', '{{ op.data_followup|date:'Y-m-d'|default:'' }}', '{{ op.descricao|default:""|escapejs }}')">
-                        
                             <!-- Card -->
-                         <div class="card-body">
-                            <h6 class="card-title text-danger mb-1 fw-bold">{{ op.cliente.nome }}</h6>
-                            <p class="text-muted small mb-2">Vendedor: {{ op.vendedor_responsavel.nome }}</p>
+                            <div class="card-body">
+                                <h6 class="card-title mb-1 fw-bold" style="color: var(--sidebar-bg);">{{ op.cliente.nome }}</h6>
+                                {% if op.agencia %}<p class="mb-1"><small class="badge bg-light text-dark border"><i class="fa-solid fa-building me-1"></i>Ag: {{ op.agencia.nome }}</small></p>{% endif %}
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="badge bg-secondary">{{ op.get_produto_formato_display }}</span>
+                                </div>
+                                <p class="text-muted small mb-0">Comercial: {{ op.vendedor_responsavel.nome }}</p>
+
+                                {% if op.data_followup %}
+                                <p class="text-muted small">
+                                    Follow-up: {{ op.data_followup|date:'d/m/Y' }}
+
+                                    {% if op.status_followup == 'atrasado' %}
+                                        <span class="badge bg-danger">Atrasado</span>
+                                    {% elif op.status_followup == 'no_prazo' %}
+                                        <span class="badge bg-success">Em dia</span>
+                                    {% endif %}
+                                </p>
+                                {% endif %}
+
+                                {% if op.descricao %}<p class="text-muted small mb-2 border-start ps-2 border-secondary" style="font-size: 0.85rem;">📝 {{ op.descricao|truncatewords:15 }}</p>{% endif %}
+                                <div>
+                                <strong style="color: var(--mc4-cyan);">R$ {{ op.valor_estimado }}</strong>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <p class="text-muted small text-center mt-3 text-empty">Nenhum negócio</p>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- COLUNA: PROPOSTA -->
+                <div class="kanban-column" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)" ondrop="drop(event, 'PROPOSTA')" style="border-top: 4px solid var(--sidebar-bg);">
+                    <div class="column-header"> 
+                        <h6 class="m-0 text-white">Proposta Enviada (<span class="count">{{ proposta.count }}</span>)</h6>
+                    </div>
+
+                    <!-- Cartões de Oportunidades | Proposta -->
+                    <div class="cards-container">
+                        {% for op in proposta %}
+                        <div class="card opportunity-card" id="card-{{ op.id }}" draggable="true" ondragstart="drag(event, '{{ op.id }}')" ondragend="dragEnd(event)"
+                            onclick="prepararEdicao('{{ op.id }}', '{{ op.cliente.id }}', '{{ op.agencia.id|default:'' }}', '{{ op.vendedor_responsavel.id }}', '{{ op.produto_formato }}', '{{ op.valor_estimado|default:"0.00"|floatformat:2 }}', '{{ op.estagio_funil }}',  '{{ op.data_followup|date:'Y-m-d'|default:'' }}', '{{ op.descricao|default:""|escapejs }}')">
+                            
+                            <!-- Card -->
+                            <div class="card-body">
+                                <h6 class="card-title mb-1 fw-bold" style="color: var(--sidebar-bg);">{{ op.cliente.nome }}</h6>
+                                {% if op.agencia %}<p class="mb-1"><small class="badge bg-light text-dark border"><i class="fa-solid fa-building me-1"></i>Ag: {{ op.agencia.nome }}</small></p>{% endif %}
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="badge bg-secondary">{{ op.get_produto_formato_display }}</span>
+                                </div>
+                                <p class="text-muted small mb-0">Comercial: {{ op.vendedor_responsavel.nome }}</p>
+
+                                
+                                {% if op.data_followup %}
+                                <p class="text-muted small">
+                                    Follow-up: {{ op.data_followup|date:'d/m/Y' }}
+
+                                    {% if op.status_followup == 'atrasado' %}
+                                        <span class="badge bg-danger">Atrasado</span>
+                                    {% elif op.status_followup == 'no_prazo' %}
+                                        <span class="badge bg-success">Em dia</span>
+                                    {% endif %}
+                                </p>
+                                {% endif %}
+
+                                {% if op.descricao %}<p class="text-muted small mb-2 border-start ps-2 border-secondary" style="font-size: 0.85rem;">📝 {{ op.descricao|truncatewords:15 }}</p>{% endif %}
+                                <div>
+                                <strong style="color: var(--mc4-cyan);">R$ {{ op.valor_estimado }}</strong>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %} <p class="text-muted small text-center mt-3 text-empty">Nenhum negócio</p> {% endfor %}
+                    </div>
+                </div>
+
+                <!-- COLUNA: NEGOCIAÇÃO -->
+                <div class="kanban-column" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)" ondrop="drop(event, 'NEGOCIACAO')" style="border-top: 4px solid var(--sidebar-bg);">
+                    <div class="column-header">
+                        <h6 class="m-0 text-white">Negociação (<span class="count">{{ negociacao.count }}</span>)</h6>    
+                    </div>
+                    
+                    <!-- Cartões de Oportunidades | Negociação -->
+                    <div class="cards-container">
+                        {% for op in negociacao %}
+                        <div class="card opportunity-card" id="card-{{ op.id }}" draggable="true" ondragstart="drag(event, '{{ op.id }}')" ondragend="dragEnd(event)"
+                            onclick="prepararEdicao('{{ op.id }}', '{{ op.cliente.id }}', '{{ op.agencia.id|default:'' }}', '{{ op.vendedor_responsavel.id }}', '{{ op.produto_formato }}', '{{ op.valor_estimado|default:"0.00"|floatformat:2 }}', '{{ op.estagio_funil }}', '{{ op.data_followup|date:'Y-m-d'|default:'' }}', '{{ op.descricao|default:""|escapejs }}')">
+                            
+                            <!-- Card -->
+                            <div class="card-body">
+                                <h6 class="card-title mb-1 fw-bold" style="color: var(--sidebar-bg);">{{ op.cliente.nome }}</h6>
+                                {% if op.agencia %}<p class="mb-1"><small class="badge bg-light text-dark border"><i class="fa-solid fa-building me-1"></i>Ag: {{ op.agencia.nome }}</small></p>{% endif %}
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="badge bg-secondary">{{ op.get_produto_formato_display }}</span>
+                                </div>
+                                <p class="text-muted small mb-2">Comercial: {{ op.vendedor_responsavel.nome }}</p>
 
 
                             {% if op.data_followup %}
-                            <p class="text-muted small">
-                                Follow-up: {{ op.data_followup|date:'d/m/Y' }}
+                                <p class="text-muted small">
+                                    Follow-up: {{ op.data_followup|date:'d/m/Y' }}
 
-                                {% if op.status_followup == 'atrasado' %}
-                                    <span class="badge bg-danger">Atrasado</span>
-                                {% elif op.status_followup == 'no_prazo' %}
-                                    <span class="badge bg-success">Em dia</span>
+                                    {% if op.status_followup == 'atrasado' %}
+                                        <span class="badge bg-danger">Atrasado</span>
+                                    {% elif op.status_followup == 'no_prazo' %}
+                                        <span class="badge bg-success">Em dia</span>
+                                    {% endif %}
+                                </p>
                                 {% endif %}
-                            </p>
-                            {% endif %}
 
-                            {% if op.descricao %}<p class="text-muted small mb-2 border-start ps-2 border-secondary" style="font-size: 0.85rem;">📝 {{ op.descricao|truncatewords:15 }}</p>{% endif %}
-                            <div>
-                               <strong style="color: var(--mc4-cyan);">R$ {{ op.valor_estimado }}</strong>
+                                {% if op.descricao %}<p class="text-muted small mb-2 border-start ps-2 border-secondary" style="font-size: 0.85rem;">📝 {{ op.descricao|truncatewords:15 }}</p>{% endif %}
+                                <div>
+                                <strong style="color: var(--mc4-cyan);">R$ {{ op.valor_estimado }}</strong>
+                                </div>
                             </div>
                         </div>
+                        {% empty %} <p class="text-muted small text-center mt-3 text-empty">Nenhum negócio</p> {% endfor %}
                     </div>
-                    {% empty %} <p class="text-muted small text-center mt-3 text-empty">Nenhum contrato</p> {% endfor %}
+                </div>
+
+                
+                <!-- COLUNA: FECHADO -->
+                <div class="kanban-column" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)" ondrop="drop(event, 'FECHADO')" style="background-color: #e2f0d9; border-top: 4px solid var(--mc4-lime);">
+                    <div class="column-header">
+                        <h6 class="m-0 text-success">Fechado (<span class="count">{{ fechado.count }}</span>)</h6>
+                    </div>
+                    
+                    <!-- Cartões de Oportunidades | Fechado -->
+                    <div class="cards-container">
+                        {% for op in fechado %}
+                        <div class="card opportunity-card border-start border-success border-3" id="card-{{ op.id }}" draggable="true" ondragstart="drag(event, '{{ op.id }}')" ondragend="dragEnd(event)"
+                            onclick="prepararEdicao('{{ op.id }}', '{{ op.cliente.id }}', '{{ op.agencia.id|default:'' }}', '{{ op.vendedor_responsavel.id }}', '{{ op.produto_formato }}', '{{ op.valor_estimado|default:"0.00"|floatformat:2 }}', '{{ op.estagio_funil }}', '{{ op.data_followup|date:'Y-m-d'|default:'' }}', '{{ op.descricao|default:""|escapejs }}')">
+                            
+                                <!-- Card -->
+                            <div class="card-body">
+                                <h6 class="card-title text-success mb-1 fw-bold">{{ op.cliente.nome }}</h6>
+                                <p class="text-muted small mb-2">Comercial: {{ op.vendedor_responsavel.nome }}</p>
+                                
+                                {% if op.data_followup %}
+                                <p class="text-muted small">
+                                    Follow-up: {{ op.data_followup|date:'d/m/Y' }}
+
+                                    {% if op.status_followup == 'atrasado' %}
+                                        <span class="badge bg-danger">Atrasado</span>
+                                    {% elif op.status_followup == 'no_prazo' %}
+                                        <span class="badge bg-success">Em dia</span>
+                                    {% endif %}
+                                </p>
+                                {% endif %}
+
+                                {% if op.descricao %}<p class="text-muted small mb-2 border-start ps-2 border-secondary" style="font-size: 0.85rem;">📝 {{ op.descricao|truncatewords:15 }}</p>{% endif %}
+                                <div>
+                                <strong style="color: var(--mc4-cyan);">R$ {{ op.valor_estimado }}</strong>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %} <p class="text-muted small text-center mt-3 text-empty">Nenhum contrato</p> {% endfor %}
+                    </div>
+                </div>
+
+                <!-- COLUNA: PERDIDO -->
+                <div class="kanban-column" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)" ondrop="drop(event, 'PERDIDO')" style="background-color: #fce8e6; border-top: 4px solid var(--mc4-orange);">
+                    <div class="column-header">
+                        <h6 class="m-0 text-danger">Perdido (<span class="count">{{ perdido.count }}</span>)</h6>
+                    </div>
+                    <div class="cards-container">
+                        {% for op in perdido %}
+                        <div class="card opportunity-card border-start border-danger border-3" id="card-{{ op.id }}" draggable="true" ondragstart="drag(event, '{{ op.id }}')" ondragend="dragEnd(event)"
+                            onclick="prepararEdicao('{{ op.id }}', '{{ op.cliente.id }}', '{{ op.agencia.id|default:'' }}', '{{ op.vendedor_responsavel.id }}', '{{ op.produto_formato }}', '{{ op.valor_estimado|default:"0.00"|floatformat:2 }}', '{{ op.estagio_funil }}', '{{ op.data_followup|date:'Y-m-d'|default:'' }}', '{{ op.descricao|default:""|escapejs }}')">
+                            
+                                <!-- Card -->
+                            <div class="card-body">
+                                <h6 class="card-title text-danger mb-1 fw-bold">{{ op.cliente.nome }}</h6>
+                                <p class="text-muted small mb-2">Vendedor: {{ op.vendedor_responsavel.nome }}</p>
+
+
+                                {% if op.data_followup %}
+                                <p class="text-muted small">
+                                    Follow-up: {{ op.data_followup|date:'d/m/Y' }}
+
+                                    {% if op.status_followup == 'atrasado' %}
+                                        <span class="badge bg-danger">Atrasado</span>
+                                    {% elif op.status_followup == 'no_prazo' %}
+                                        <span class="badge bg-success">Em dia</span>
+                                    {% endif %}
+                                </p>
+                                {% endif %}
+
+                                {% if op.descricao %}<p class="text-muted small mb-2 border-start ps-2 border-secondary" style="font-size: 0.85rem;">📝 {{ op.descricao|truncatewords:15 }}</p>{% endif %}
+                                <div>
+                                <strong style="color: var(--mc4-cyan);">R$ {{ op.valor_estimado }}</strong>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %} <p class="text-muted small text-center mt-3 text-empty">Nenhum contrato</p> {% endfor %}
+                    </div>
                 </div>
             </div>
         </div>
@@ -495,6 +568,24 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
+
+        
+        const URLS = {
+            atualizarEstagio: "{% url 'atualizar_estagio_ajax' %}",
+            adicionarTarefa: "{% url 'adicionar_tarefa' %}",
+            alternarTarefa: "{% url 'alternar_tarefa' %}",
+            adicionarNota: "{% url 'adicionar_nota' %}",
+            excluir: "{% url 'excluir_oportunidade_ajax' %}",
+            buscarDetalhesBase: "/crm/buscar-detalhes/",
+        };
+
+        
+        function getCSRFToken() {
+            const match = document.cookie.match(/csrftoken=([^;]+)/);
+            return match ? match[1] : '';
+        }
+
+
         let isDragging = false;
 
         function allowDrop(ev) { ev.preventDefault(); }
@@ -516,9 +607,9 @@
             document.querySelectorAll('.kanban-column').forEach(c => c.classList.remove('drag-over'));
             const id = ev.dataTransfer.getData("text/plain");
             
-            fetch('/crm/atualizar-estagio/', {
+            fetch(URLS.atualizarEstagio, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken()},
                 body: JSON.stringify({ id: id, estagio: novoEstagio })
             }).then(() => window.location.reload());
         }
@@ -607,7 +698,7 @@
             const containerH = document.getElementById('timeline-container');
             if (containerH) containerH.innerHTML = '<small class="text-muted">Carregando histórico...</small>';
 
-            fetch(`/crm/buscar-detalhes/${id}/`)
+            fetch(URLS.buscarDetalhesBase + id + '/')
             .then(res => res.json())
             .then(data => {
                 if (listaT) {
@@ -651,9 +742,9 @@
             const id = document.getElementById('oportunidade_id').value;
             const input = document.getElementById('input-tarefa');
             if(!input.value.trim()) return;
-            fetch('/crm/adicionar-tarefa/', {
+            fetch(URLS.adicionarTarefa, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
                 body: JSON.stringify({ oportunidade_id: id, descricao: input.value })
             })
             .then(res => res.json())
@@ -671,9 +762,9 @@
         }
 
         function alternarTarefa(id, checkbox) {
-            fetch('/crm/alternar-tarefa/', {
+            fetch(URLS.alternarTarefa, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
                 body: JSON.stringify({ id: id })
             })
             
@@ -692,9 +783,9 @@
             const id = document.getElementById('oportunidade_id').value;
             const input = document.getElementById('input-nota');
             if(!input.value.trim()) return;
-            fetch('/crm/adicionar-nota/', {
+            fetch(URLS.adicionarNota, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
                 body: JSON.stringify({ oportunidade_id: id, texto: input.value })
             })
             .then(res => res.json())
@@ -714,11 +805,11 @@
         function excluirOportunidade() {
             const id = document.getElementById('oportunidade_id').value;
             if (!id || !confirm("Deseja deletar permanentemente este negócio?")) return;
-            fetch('/crm/excluir-oportunidade/', {
+            fetch(URLS.excluir, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': '{{ csrf_token }}'
+                    'X-CSRFToken': getCSRFToken()
                 },
                 body: JSON.stringify({ id: id })
             })

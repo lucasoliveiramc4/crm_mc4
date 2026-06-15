@@ -3,7 +3,6 @@ Django settings for crm_mc4 project.
 """
 
 from pathlib import Path
-import os
 from decouple import config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -16,11 +15,12 @@ SECRET_KEY = config('SECRET_KEY')
 
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = config(
-    'ALLOWED_HOSTS',
-    default='localhost,127.0.0.1,.onrender.com',
-    cast=lambda v: [s.strip() for s in v.split(',')]
-)
+ALLOWED_HOSTS = [
+    '200.234.207.73',
+    'crm.somosmc4.com.br',
+    'localhost',
+    '127.0.0.1'
+]
 
 # ================================
 # APPLICATIONS
@@ -56,7 +56,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # ✅ STATIC em produção
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -91,7 +91,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'crm_mc4.wsgi.application'
 
 # ================================
-# DATABASE (LOCAWEB POSTGRES)
+# DATABASE
 # ================================
 
 DATABASES = {
@@ -174,17 +174,32 @@ REST_FRAMEWORK = {
 # CORS + CSRF
 # ================================
 
-CORS_ALLOWED_ORIGINS = config(
-    'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:8000,http://127.0.0.1:8000',
-    cast=lambda v: [s.strip() for s in v.split(',')]
-)
+CORS_ALLOWED_ORIGINS = [
+    'http://200.234.207.73',
+    'http://crm.somosmc4.com.br'
+]
 
-CSRF_TRUSTED_ORIGINS = config(
-    'CSRF_TRUSTED_ORIGINS',
-    default='https://*.onrender.com',
-    cast=lambda v: [s.strip() for s in v.split(',')]
-)
+CSRF_TRUSTED_ORIGINS = [
+    'http://200.234.207.73',
+    'http://crm.somosmc4.com.br'
+]
+
+# ================================
+# PROXY CONFIG (NGINX)
+# ================================
+
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'http')
+
+# ================================
+# COOKIE CONFIG (CORREÇÃO CSRF)
+# ================================
+
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False
+
+CSRF_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SAMESITE = 'Lax'
 
 # ================================
 # AUTHENTICATION
@@ -207,7 +222,7 @@ LOGOUT_REDIRECT_URL = '/accounts/login/'
 LOGIN_URL = 'account_login'
 
 # ================================
-# EMAIL (Orçamento)
+# EMAIL
 # ================================
 
 EMAIL_ORCAMENTO_PARA = ['orcamento@somosmc4.com.br']
@@ -219,16 +234,10 @@ EMAIL_ORCAMENTO_CC = [
 ]
 
 # ================================
-# SECURITY
+# SECURITY (DESATIVADO TEMPORARIAMENTE)
 # ================================
 
-if not DEBUG:
-    SECURE_SSL_REDIRECT = True
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
-    SECURE_HSTS_SECONDS = 31536000
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
+SECURE_SSL_REDIRECT = False
 
 # ================================
 # LOGGING

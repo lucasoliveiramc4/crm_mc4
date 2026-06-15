@@ -1,5 +1,5 @@
 from django import forms
-from .models import Oportunidade, Cliente, Comercial
+from .models import Oportunidade, Cliente
 
 class OportunidadeForm(forms.ModelForm):
     class Meta:
@@ -45,25 +45,29 @@ class OportunidadeForm(forms.ModelForm):
 class ClienteForm(forms.ModelForm):
     class Meta:
         model = Cliente
-        
         fields = [
-                'nome',
-                'contato',  # ✅ NOVO
-                'segmento',
-                'tipo',
-                'vendedor_responsavel'
+            'nome',
+            'contato',
+            'segmento'
         ]
 
         widgets = {
             'nome': forms.TextInput(attrs={'class': 'form-control'}),
-            'vendedor_responsavel': forms.Select(attrs={'class': 'form-control'}),
+            'contato': forms.TextInput(attrs={'class': 'form-control'}),
+            'segmento': forms.TextInput(attrs={'class': 'form-control'}),
         }
 
 class AgenciaForm(forms.ModelForm):
     class Meta:
         model = Cliente
-        fields = ['nome', 'vendedor_responsavel']
+        fields = [
+            'nome',
+            'contato',
+            'segmento'
+        ]
+
         widgets = {
             'nome': forms.TextInput(attrs={'class': 'form-control'}),
-            'vendedor_responsavel': forms.Select(attrs={'class': 'form-control'}),
+            'contato': forms.TextInput(attrs={'class': 'form-control'}),
+            'segmento': forms.TextInput(attrs={'class': 'form-control'}),
         }

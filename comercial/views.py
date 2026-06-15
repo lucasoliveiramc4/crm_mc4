@@ -1,17 +1,22 @@
+from urllib import request
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from .models import Oportunidade, Tarefa, NotaHistorico, Cliente, Comercial
-from .forms import OportunidadeForm, ClienteForm, AgenciaForm
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
-from django.db.models import Sum, Count
+from django.db.models import Sum, Count, Q
 from django.utils import timezone
 from django.core.mail import EmailMessage
 from django.conf import settings
 from django.contrib.auth.models import Group
+
+from .models import Oportunidade, Tarefa, NotaHistorico, Cliente, Comercial
+from .forms import OportunidadeForm, ClienteForm, AgenciaForm
+
 import json
 import logging
 from collections import defaultdict
+from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +33,15 @@ def is_diretoria(user):
 def is_comercial(user):
     return user.groups.filter(name='Comercial').exists()
 
+def pode_editar(user, op):
+    return is_admin(user) or is_diretoria(user) or op.vendedor_responsavel.user == user
+
+def pode_acessar(user, op):
+    return pode_editar(user, op)
+
+
 # ================================
-# FILTROS CENTRALIZADOS
+# FILTROS
 # ================================
 
 def get_oportunidades_usuario(user, request=None):
@@ -58,11 +70,6 @@ def get_oportunidades_usuario(user, request=None):
 
     return qs
 
-def pode_editar(user, op):
-    return is_admin(user) or is_diretoria(user) or op.vendedor_responsavel.user == user
-
-def pode_acessar(user, op):
-    return pode_editar(user, op)
 
 # ================================
 # DASHBOARD
@@ -71,21 +78,48 @@ def pode_acessar(user, op):
 @login_required(login_url='account_login')
 def dashboard_view(request):
 
-    oportunidades = get_oportunidades_usuario(request.user, request)
-    ativas = oportunidades.exclude(estagio_funil__in=['FECHADO', 'PERDIDO'])
     hoje = timezone.now().date()
+    primeiro_dia_mes = hoje.replace(day=1)
 
-    dados_grafico = []
+    ultimos_30_dias = hoje - timedelta(days=30)
+    primeiro_dia_ano = hoje.replace(month=1, day=1)
+
+    # ✅ filtro default
+    if not request.GET.get('data_inicio') and not request.GET.get('data_fim'):
+        request.GET = request.GET.copy()
+        request.GET['data_inicio'] = str(primeiro_dia_mes)
+        request.GET['data_fim'] = str(hoje)
+
+    oportunidades = get_oportunidades_usuario(request.user, request)
+
+    ativas = oportunidades.exclude(estagio_funil__in=['FECHADO', 'PERDIDO'])
+
+    # ================================
+    # VENDEDORES
+    # ================================
 
     grupo_comercial = Group.objects.filter(name='Comercial').first()
+    grupo_diretoria = Group.objects.filter(name='Diretoria').first()
+
+    grupos = [g for g in [grupo_comercial, grupo_diretoria] if g]
 
     if is_admin(request.user) or is_diretoria(request.user):
-        vendedores = Comercial.objects.filter(user__groups=grupo_comercial, ativo=True) if grupo_comercial else Comercial.objects.none()
+
+        vendedores = Comercial.objects.select_related('user').filter(
+            user__groups__in=grupos,
+            ativo=True
+        ).exclude(
+            user__is_superuser=True
+        ).distinct()
+
     else:
         vendedores = Comercial.objects.filter(user=request.user)
 
-    # ✅ PERFORMANCE (query única)
-    ops = Oportunidade.objects.filter(vendedor_responsavel__in=vendedores)
+    ops = oportunidades.filter(vendedor_responsavel__in=vendedores)
+
+    # ================================
+    # GRÁFICO
+    # ================================
 
     dados = defaultdict(lambda: {'fechado': 0, 'perdido': 0, 'aberto': 0})
 
@@ -99,7 +133,15 @@ def dashboard_view(request):
         else:
             dados[nome]['aberto'] += 1
 
-    dados_grafico = [{'nome': k, **v} for k, v in dados.items()]
+    dados_grafico = [
+        {'nome': k, **v}
+        for k, v in dados.items()
+        if v['fechado'] > 0 or v['aberto'] > 0 or v['perdido'] > 0
+    ]
+
+    # ================================
+    # CONTEXT
+    # ================================
 
     context = {
         'kpi_ativas': ativas.count(),
@@ -109,24 +151,32 @@ def dashboard_view(request):
         'ultimas_movimentacoes': oportunidades.order_by('-id')[:5],
         'followups_atrasados': oportunidades.filter(data_followup__lt=hoje).count(),
 
-        'ranking': oportunidades.values(
-            'vendedor_responsavel__nome'
-        ).annotate(
-            total=Sum('valor_estimado')
-        ).order_by('-total')[:5],
+        'ranking': oportunidades.values('vendedor_responsavel__nome')
+            .annotate(total=Sum('valor_estimado'))
+            .order_by('-total')[:5],
 
         'vendedores_lista': vendedores,
         'estagios': Oportunidade.ESTAGIO_CHOICES,
-        'request': request,
         'form': OportunidadeForm(user=request.user),
 
         'is_admin': is_admin(request.user),
         'is_diretoria': is_diretoria(request.user),
 
         'grafico_funil': dados_grafico,
+
+        # datas para botões
+        'primeiro_dia_mes': primeiro_dia_mes,
+        'ultimos_30_dias': ultimos_30_dias,
+        'primeiro_dia_ano': primeiro_dia_ano,
+        'hoje': hoje,
     }
 
     return render(request, 'comercial/dashboard.html', context)
+
+
+# ================================
+# KANBAN
+# ================================
 
 # ================================
 # KANBAN
@@ -135,13 +185,26 @@ def dashboard_view(request):
 @login_required(login_url='account_login')
 def kanban_view(request):
 
+    hoje = timezone.now().date()
+    primeiro_dia_mes = hoje.replace(day=1)
+
+    ultimos_30_dias = hoje - timedelta(days=30)
+    primeiro_dia_ano = hoje.replace(month=1, day=1)
+
+    # ✅ filtro padrão (igual dashboard)
+    if not request.GET.get('data_inicio') and not request.GET.get('data_fim'):
+        request.GET = request.GET.copy()
+        request.GET['data_inicio'] = str(primeiro_dia_mes)
+        request.GET['data_fim'] = str(hoje)
+
     comercial = None
 
     if is_comercial(request.user):
-        try:
-            comercial = Comercial.objects.get(user=request.user)
-        except Comercial.DoesNotExist:
-            return redirect('kanban')
+        comercial = getattr(request.user, 'comercial', None)
+
+    # ================================
+    # POST (EDITAR / CRIAR)
+    # ================================
 
     if request.method == 'POST':
         oportunidade_id = request.POST.get('oportunidade_id')
@@ -159,35 +222,28 @@ def kanban_view(request):
         if form.is_valid():
             oportunidade = form.save(commit=False)
 
-            if is_comercial(request.user):
+            if is_comercial(request.user) and comercial:
                 oportunidade.vendedor_responsavel = comercial
 
             if not oportunidade.vendedor_responsavel:
                 oportunidade.vendedor_responsavel = comercial
 
-            is_new = oportunidade._state.adding
+            is_new = oportunidade.pk is None
             oportunidade.save()
 
-            # ✅ EMAIL
+            # EMAIL
             if oportunidade.estagio_funil == 'SOLICITACAO' and is_new:
                 try:
-                    valor = oportunidade.valor_estimado if oportunidade.valor_estimado else 'A definir'
-
-                    html_message = f"""
-                    <html><body>
-                        <h2 style="color:#00A5B5;">📩 Nova Solicitação de Proposta</h2>
-                        <p><strong>Cliente:</strong> {oportunidade.cliente.nome}</p>
-                        <p><strong>Comercial:</strong> {oportunidade.vendedor_responsavel.nome}</p>
-                        <p><strong>Data:</strong> {timezone.now().strftime('%d/%m/%Y')}</p>
-                        <p><strong>Formato:</strong> {oportunidade.get_produto_formato_display()}</p>
-                        <p><strong>Valor:</strong> R$ {valor}</p>
-                        <p><strong>Briefing:</strong><br>{oportunidade.descricao or 'Não informado'}</p>
-                    </body></html>
-                    """
+                    valor = oportunidade.valor_estimado or 'A definir'
 
                     email = EmailMessage(
-                        subject=f'Solicitação de Proposta - {oportunidade.cliente.nome}',
-                        body=html_message,
+                        subject=f'Solicitação - {oportunidade.cliente.nome}',
+                        body=f"""
+                        <h2>Nova Solicitação</h2>
+                        <p>Cliente: {oportunidade.cliente.nome}</p>
+                        <p>Comercial: {oportunidade.vendedor_responsavel.nome}</p>
+                        <p>Valor: R$ {valor}</p>
+                        """,
                         from_email='sistema@somosmc4.com.br',
                         to=settings.EMAIL_ORCAMENTO_PARA,
                         cc=settings.EMAIL_ORCAMENTO_CC,
@@ -196,18 +252,23 @@ def kanban_view(request):
                     email.content_subtype = "html"
                     email.send(fail_silently=True)
 
-                except Exception as e:
-                    logger.error(f"Erro ao enviar email: {e}")
+                except Exception:
+                    logger.exception("Erro ao enviar email")
 
             return redirect('kanban')
 
         else:
-            logger.warning(f"Erros do form: {form.errors}")
+            logger.warning(f"Form inválido: {form.errors}")
 
     else:
         form = OportunidadeForm(user=request.user)
 
+    # ✅ agora respeita filtros (incluindo datas)
     oportunidades = get_oportunidades_usuario(request.user, request)
+
+    # ================================
+    # CONTEXT
+    # ================================
 
     context = {
         'prospeccao': oportunidades.filter(estagio_funil='PROSPECCAO'),
@@ -219,14 +280,21 @@ def kanban_view(request):
 
         'vendedores_lista': Comercial.objects.all(),
         'estagios': Oportunidade.ESTAGIO_CHOICES,
-        'request': request,
         'form': form,
 
         'is_admin': is_admin(request.user),
         'is_diretoria': is_diretoria(request.user),
+
+        # ✅ necessário para os botões
+        'primeiro_dia_mes': primeiro_dia_mes,
+        'ultimos_30_dias': ultimos_30_dias,
+        'primeiro_dia_ano': primeiro_dia_ano,
+        'hoje': hoje,
     }
 
     return render(request, 'comercial/kanban.html', context)
+
+
 
 # ================================
 # CLIENTES
@@ -235,45 +303,102 @@ def kanban_view(request):
 @login_required(login_url='account_login')
 def clientes_view(request):
 
-    if is_admin(request.user) or is_diretoria(request.user):
-        clientes = Cliente.objects.all()
-    else:
-        clientes = Cliente.objects.filter(vendedor_responsavel__user=request.user)
+    print("METHOD:", request.method)
+    print("POST:", request.POST)
 
+    clientes = Cliente.objects.all()
+
+    # ✅ BUSCA
     busca = request.GET.get('busca')
-
     if busca:
         clientes = clientes.filter(nome__icontains=busca)
 
+    # ✅ POST
     if request.method == 'POST':
         tipo = request.POST.get('tipo_cadastro')
-        form = ClienteForm(request.POST) if tipo == 'anunciante' else AgenciaForm(request.POST)
 
-        if form.is_valid():
-            obj = form.save(commit=False)
+        form_cliente = ClienteForm(request.POST)
 
-            if is_comercial(request.user):
-                obj.vendedor_responsavel = request.user.comercial
+        if form_cliente.is_valid():
+            obj = form_cliente.save(commit=False)
+
+            # ✅ 🔥 CORREÇÃO PRINCIPAL: DEFINIR TIPO
+            if tipo == 'anunciante':
+                obj.tipo = 'CLIENTE_FINAL'
+            else:
+                obj.tipo = 'AGENCIA'
+
+            # ✅ VENDEDOR
+            comercial = Comercial.objects.filter(user=request.user).first()
+            obj.vendedor_responsavel = comercial
 
             obj.save()
+
+            print(f"✅ SALVOU: {obj.nome} | TIPO: {obj.tipo}")
+
             return redirect('clientes')
 
+        else:
+            print("❌ ERRO FORM:", form_cliente.errors)
+    else:
+        form_cliente = ClienteForm()
+
+    form_agencia = AgenciaForm()
+
+    # ✅ CONTEXTO
     context = {
-        'anunciantes': clientes.filter(tipo='CLIENTE_FINAL')
-            .annotate(total_negocios=Count('oportunidades')),
+        'anunciantes': clientes
+            .filter(tipo='CLIENTE_FINAL')
+            .annotate(total_negocios=Count('oportunidades'))
+            .order_by('nome'),
 
-        'agencias': clientes.filter(tipo='AGENCIA')
-            .annotate(total_negocios=Count('oportunidades_agencia')),
+        'agencias': clientes
+            .filter(tipo='AGENCIA')
+            .annotate(total_negocios=Count('oportunidades_agencia'))
+            .order_by('nome'),
 
-        'form_cliente': ClienteForm(),
-        'form_agencia': AgenciaForm(),
-        'request': request
+        'form_cliente': form_cliente,
+        'form_agencia': form_agencia,
     }
 
     return render(request, 'comercial/clientes.html', context)
 
 # ================================
-# AJAX ENDPOINTS
+# COMERCIAL (CORREÇÃO DE BUG)
+# ================================
+
+@login_required(login_url='account_login')
+def comercial_view(request):
+
+    base_qs = Comercial.objects.annotate(
+        total_leads=Count('oportunidades', distinct=True),
+        leads_ativos=Count(
+            'oportunidades',
+            filter=~Q(oportunidades__estagio_funil__in=['FECHADO', 'PERDIDO']),
+            distinct=True
+        ),
+        pipeline_ativo=Sum(
+            'oportunidades__valor_estimado',
+            filter=~Q(oportunidades__estagio_funil__in=['FECHADO', 'PERDIDO'])
+        ),
+        faturamento_fechado=Sum(
+            'oportunidades__valor_estimado',
+            filter=Q(oportunidades__estagio_funil='FECHADO')
+        )
+    )
+
+    if is_admin(request.user) or is_diretoria(request.user):
+        vendedores = base_qs
+    else:
+        vendedores = base_qs.filter(user=request.user)
+
+    return render(request, 'comercial/comercial.html', {
+        'vendedores': vendedores
+    })
+
+
+# ================================
+# AJAX
 # ================================
 
 @require_http_methods(["POST"])
@@ -281,7 +406,7 @@ def clientes_view(request):
 def excluir_oportunidade_ajax(request):
 
     try:
-        data = json.loads(request.body)
+        data = json.loads(request.body or '{}')
         op = get_object_or_404(Oportunidade, id=data.get('id'))
 
         if not is_admin(request.user):
@@ -290,9 +415,9 @@ def excluir_oportunidade_ajax(request):
         op.delete()
         return JsonResponse({'status': 'ok'})
 
-    except Exception as e:
-        logger.error(str(e))
-        return JsonResponse({'erro': str(e)}, status=400)
+    except Exception:
+        logger.exception("Erro ao excluir oportunidade")
+        return JsonResponse({'erro': 'Erro interno'}, status=400)
 
 
 @require_http_methods(["POST"])
@@ -300,7 +425,7 @@ def excluir_oportunidade_ajax(request):
 def atualizar_estagio_ajax(request):
 
     try:
-        data = json.loads(request.body)
+        data = json.loads(request.body or '{}')
         op = get_object_or_404(Oportunidade, id=data.get('id'))
 
         if not pode_acessar(request.user, op):
@@ -311,24 +436,17 @@ def atualizar_estagio_ajax(request):
 
         return JsonResponse({'status': 'ok'})
 
-    except Exception as e:
-        logger.error(str(e))
-        return JsonResponse({'erro': str(e)}, status=400)
+    except Exception:
+        logger.exception("Erro ao atualizar estágio")
+        return JsonResponse({'erro': 'Erro interno'}, status=400)
 
-
-login_required(login_url='account_login')
-def comercial_view(request):
-    vendedores = Comercial.objects.all()
-
-    return render(request, 'comercial/comercial.html', {
-        'vendedores': vendedores
-    })
 
 @require_http_methods(["POST"])
 @login_required(login_url='account_login')
 def adicionar_tarefa_ajax(request):
+
     try:
-        data = json.loads(request.body)
+        data = json.loads(request.body or '{}')
         op = get_object_or_404(Oportunidade, id=data.get('oportunidade_id'))
 
         if not pode_acessar(request.user, op):
@@ -341,16 +459,17 @@ def adicionar_tarefa_ajax(request):
 
         return JsonResponse({'id': tarefa.id, 'descricao': tarefa.descricao})
 
-    except Exception as e:
-        logger.error(str(e))
-        return JsonResponse({'erro': str(e)}, status=400)
-    
+    except Exception:
+        logger.exception("Erro ao adicionar tarefa")
+        return JsonResponse({'erro': 'Erro interno'}, status=400)
+
 
 @require_http_methods(["POST"])
 @login_required(login_url='account_login')
 def alternar_tarefa_ajax(request):
+
     try:
-        data = json.loads(request.body)
+        data = json.loads(request.body or '{}')
         tarefa = get_object_or_404(Tarefa, id=data.get('id'))
 
         if not pode_acessar(request.user, tarefa.oportunidade):
@@ -361,16 +480,17 @@ def alternar_tarefa_ajax(request):
 
         return JsonResponse({'concluida': tarefa.concluida})
 
-    except Exception as e:
-        logger.error(str(e))
-        return JsonResponse({'erro': str(e)}, status=400)    
-    
+    except Exception:
+        logger.exception("Erro ao alternar tarefa")
+        return JsonResponse({'erro': 'Erro interno'}, status=400)
+
 
 @require_http_methods(["POST"])
 @login_required(login_url='account_login')
 def adicionar_nota_ajax(request):
+
     try:
-        data = json.loads(request.body)
+        data = json.loads(request.body or '{}')
         op = get_object_or_404(Oportunidade, id=data.get('oportunidade_id'))
 
         if not pode_acessar(request.user, op):
@@ -386,12 +506,14 @@ def adicionar_nota_ajax(request):
             'data': nota.criada_em.strftime('%d/%m/%Y %H:%M')
         })
 
-    except Exception as e:
-        logger.error(str(e))
-        return JsonResponse({'erro': str(e)}, status=400)    
-    
+    except Exception:
+        logger.exception("Erro ao adicionar nota")
+        return JsonResponse({'erro': 'Erro interno'}, status=400)
+
+
 @login_required(login_url='account_login')
 def buscar_detalhes_oportunidade(request, pk):
+
     try:
         op = get_object_or_404(Oportunidade, pk=pk)
 
@@ -401,7 +523,6 @@ def buscar_detalhes_oportunidade(request, pk):
         tarefas = list(op.tarefas.values('id', 'descricao', 'concluida'))
         historicos = list(op.historicos.values('texto', 'criada_em'))
 
-        # Formatar data
         for h in historicos:
             h['criada_em'] = h['criada_em'].strftime('%d/%m/%Y %H:%M')
 
@@ -410,6 +531,6 @@ def buscar_detalhes_oportunidade(request, pk):
             'historicos': historicos
         })
 
-    except Exception as e:
-        logger.error(str(e))
-        return JsonResponse({'erro': str(e)}, status=400)
+    except Exception:
+        logger.exception("Erro ao buscar detalhes")
+        return JsonResponse({'erro': 'Erro interno'}, status=400)
